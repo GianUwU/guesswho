@@ -2034,23 +2034,27 @@ Output EXACTLY 3 lines in order from hardest to easiest giveaway, with NO prefix
 }
 
 async function generateMultiplayerSimilarityWithGemini(characters, avoidCluesText) {
-  const maxClues = Math.max(1, Math.floor(characters.length / 2));
+  const maxClues = Math.max(2, Math.floor(characters.length / 2));
 
   // STAGE 1: Gemini Brainstormer AI
   const brainstormSysPrompt = `You are a master pop culture trivia expert and game designer for a multiplayer (${characters.length} players) Guess Who character game.
-There are ${characters.length} secret characters chosen by different players.
+There are ${characters.length} secret characters chosen by different players (Player 1 through Player ${characters.length}).
 Your mission is to brainstorm candidate clues describing commonalities or traits among these characters.
 
-CRITICAL RULES FOR MULTIPLAYER CLUES:
-1. QUANTIFIED PHRASING:
+CRITICAL MANDATORY RULES:
+1. 100% PLAYER COVERAGE:
+   - Make sure there is AT LEAST ONE hint connected to EACH player's character (Characters 1 through ${characters.length})!
+   - Brainstorm candidate clues that describe ALL ${characters.length} characters ("All of your characters...").
+   - Also brainstorm candidate clues that describe subsets ("X of your characters..." or "One of your characters..."), ensuring every character has subset candidates describing them.
+2. QUANTIFIED PHRASING:
    - If ALL ${characters.length} characters share a trait: start with "All of your characters..." (e.g. "All of your characters have magical powers.").
    - If a SUBSET of characters shares a trait: start with "X of your characters..." (e.g. "Two of your characters wear white shirts.", "Three of your characters live underground.", "One of your characters is an alien.").
    - If none share a trait: start with "None of your characters...".
    - NEVER name character names, series names, or player numbers!
-2. 100% IN-UNIVERSE: Never mention meta facts (NEVER write "animated series", "video games", "cartoons", "fictional", "anime"). Clues must describe their real lives, bodies, abilities, attire, jobs, diet, or universe lore!
-3. 100% CANONICALLY TRUE for the exact number of characters claimed.
-4. Each clue must be 4 to 8 words and state ONLY ONE SINGLE TRAIT.
-5. If you do not know multiple characters, set "known_info": false.${avoidCluesText}
+3. 100% IN-UNIVERSE: Never mention meta facts (NEVER write "animated series", "video games", "cartoons", "fictional", "anime"). Clues must describe their real lives, bodies, abilities, attire, jobs, diet, or universe lore!
+4. 100% CANONICALLY TRUE for the exact number of characters claimed.
+5. Each clue must be 4 to 8 words and state ONLY ONE SINGLE TRAIT.
+6. If you do not know multiple characters, set "known_info": false.${avoidCluesText}
 
 Return ONLY valid JSON:
 {
@@ -2080,17 +2084,18 @@ Return ONLY valid JSON:
 
   // STAGE 2: Judge AI evaluates difficulty: Level 1 (Obscure), Level 2 (Regular), Level 3 (Obvious)
   const judgeSysPrompt = `You are the Judge AI for a multiplayer (${characters.length} players) Guess Who character game.
-Review the candidate clues below for the ${characters.length} characters.
+Review the candidate clues below for the ${characters.length} characters (Character 1 through Character ${characters.length}).
 Your goal is to select clues for 3 difficulty levels:
 - "level_1" (Obscure): Hardest difficulty. Obscure or subtle connections that are 100% canonically true, but tough to deduce.
 - "level_2" (Regular): Medium difficulty. Balanced connections.
 - "level_3" (Obvious): Easiest difficulty. Obvious, recognizable traits.
 
-RULES FOR CLUE SELECTION:
-1. Target clue count per level: up to ${maxClues} clues (minimum 1 clue).
-   - If there is a strong universal clue ("All of your characters..."), you can output just that 1 universal clue.
-   - If traits are divided across subsets (e.g. "Three of your characters..." and "Two of your characters..."), output up to ${maxClues} clues that complement each other.
-2. Fact-check strictly against all characters. Verify the count (e.g. if it says "Two of your characters", ensure the count matches).
+MANDATORY COVERAGE & CLUE SELECTION RULES:
+1. AT LEAST ONE HINT CONNECTED TO EACH PLAYER'S CHARACTER:
+   - Every single player's character (Character 1 through Character ${characters.length}) MUST be connected to at least one hint in the chosen set for each level!
+   - If you select 1 universal clue ("All of your characters..."), it naturally covers every player's character.
+   - If no single universal clue covers all characters, you MUST select 2 to ${maxClues} subset clues (e.g. "Three of your characters..." and "Two of your characters...", or "Two of your characters..." and "One of your characters...") such that the union of characters described covers EVERY player's character! No player's character may ever be left out with 0 hints.
+2. Fact-check strictly against all characters. Verify the count matches canon reality (e.g. if it says "Two of your characters", ensure the count matches).
 3. Clues must start with "All of your characters", "X of your characters", "One of your characters", or "None of your characters".
 4. Never mention character names, series, or player numbers!
 5. PURE DIFFICULTY CALIBRATION:
@@ -2121,13 +2126,25 @@ ${candidates.map((c, i) => `${i + 1}. ${c}`).join('\n')}`;
     } else if (typeof val === 'string' && val.trim()) {
       list = val.split('\n');
     }
-    const cleaned = list
+    let cleaned = list
       .map((c) => cleanSimilarityOutput(c, characters))
       .filter((c) => c && c.split(/\s+/).length >= 3);
-    if (cleaned.length > 0) return cleaned.slice(0, maxClues);
-    if (candidates[fallbackIdx]) return [candidates[fallbackIdx]];
-    if (candidates[0]) return [candidates[0]];
-    return ["All of your characters share a mysterious connection."];
+
+    if (cleaned.length === 0) {
+      if (candidates[fallbackIdx]) cleaned = [candidates[fallbackIdx]];
+      else if (candidates[0]) cleaned = [candidates[0]];
+      else cleaned = ["All of your characters share a mysterious connection."];
+    }
+
+    // Full coverage guarantee: if only 1 subset clue was provided, add a second candidate clue to cover remaining player(s)
+    if (cleaned.length === 1 && !/^all\b/i.test(cleaned[0])) {
+      const secondCandidate = candidates.find((c) => c !== cleaned[0] && !/^all\b/i.test(c)) || candidates.find((c) => c !== cleaned[0]);
+      if (secondCandidate) {
+        cleaned.push(secondCandidate);
+      }
+    }
+
+    return cleaned.slice(0, maxClues);
   }
 
   const l1 = parseClues(p2.level_1, 0);
@@ -2146,19 +2163,20 @@ ${candidates.map((c, i) => `${i + 1}. ${c}`).join('\n')}`;
 }
 
 async function generateMultiplayerSimilarityWithOllama(characters, avoidCluesText) {
-  const maxClues = Math.max(1, Math.floor(characters.length / 2));
+  const maxClues = Math.max(2, Math.floor(characters.length / 2));
 
   // STAGE 1: Ollama Brainstormer AI
   const stage1Sys = `You are a master pop culture trivia expert and game designer for a multiplayer (${characters.length} players) Guess Who game.
-Given ${characters.length} characters, write 15 numbered candidate similarities (1. to 15.) that describe commonalities or subset traits among them.
-RULES:
-1. QUANTIFIED PHRASING:
+Given ${characters.length} characters (Character 1 through Character ${characters.length}), write 15 numbered candidate similarities (1. to 15.) that describe commonalities or subset traits among them.
+MANDATORY RULES:
+1. FULL PLAYER COVERAGE: Ensure there are candidate clues covering EVERY single player's character (Characters 1 through ${characters.length})!
+2. QUANTIFIED PHRASING:
    - "All of your characters [verb]..." if all share it.
    - "X of your characters [verb]..." (e.g. "Two of your characters...", "Three of your characters...", "One of your characters...") if a subset shares it.
-2. IN-UNIVERSE ONLY: Never write meta facts (no "cartoon", "anime", "video game", "series"). Describe their canon abilities, appearance, jobs, or traits.
-3. 100% CANONICALLY ACCURATE.
-4. Each line must be 4 to 8 words and state ONLY ONE single trait.
-5. Never mention character or series names or player numbers.${avoidCluesText}
+3. IN-UNIVERSE ONLY: Never write meta facts (no "cartoon", "anime", "video game", "series"). Describe their canon abilities, appearance, jobs, or traits.
+4. 100% CANONICALLY ACCURATE.
+5. Each line must be 4 to 8 words and state ONLY ONE single trait.
+6. Never mention character or series names or player numbers.${avoidCluesText}
 If you do not know multiple characters, write "UNKNOWN: true".`;
 
   const stage1User = `Characters:
@@ -2200,11 +2218,16 @@ Write 15 numbered candidate clues (4-8 words each):`;
     .filter((line) => line.split(/\s+/).length >= 3);
 
   // STAGE 2: Ollama Judge AI
-  const stage2Sys = `You are the Judge AI for a multiplayer Guess Who game with ${characters.length} players.
+  const stage2Sys = `You are the Judge AI for a multiplayer Guess Who game with ${characters.length} players (Character 1 through Character ${characters.length}).
 Review the candidate clues below. Select clues for:
 - LVL 1 (Obscure): hardest difficulty, subtle trait
 - LVL 2 (Regular): medium difficulty, balanced trait
 - LVL 3 (Obvious): easiest difficulty, obvious trait
+
+CRITICAL MANDATORY RULE: AT LEAST ONE HINT CONNECTED TO EACH PLAYER'S CHARACTER!
+Every player's character (Character 1 through Character ${characters.length}) MUST be connected to at least one hint:
+- If a clue starts with "All of your characters...", 1 clue covers everyone.
+- Otherwise, output 2 to ${maxClues} complementary clues (e.g. "Two of your characters..." and "One of your characters...", or "Three of your characters..." and "Two of your characters...") so that EVERY player's character is included in at least one hint. NEVER leave any player's character out with 0 hints!
 
 Output up to ${maxClues} clues per level.
 Prefix each line with "LVL 1:", "LVL 2:", or "LVL 3:".`;
@@ -2250,13 +2273,26 @@ Prefix each line with "LVL 1:", "LVL 2:", or "LVL 3:".`;
     }
   });
 
-  const fallback = candidateLines.slice(0, maxClues);
+  function ensureOllamaCoverage(chosen, fallbackIdx) {
+    let list = chosen.slice(0, maxClues);
+    if (list.length === 0) {
+      const fb = candidateLines[fallbackIdx] || candidateLines[0];
+      list = fb ? [fb] : [];
+    }
+    // Full coverage guarantee: if only 1 subset clue, include a second clue
+    if (list.length === 1 && !/^all\b/i.test(list[0])) {
+      const second = candidateLines.find((c) => c !== list[0] && !/^all\b/i.test(c)) || candidateLines.find((c) => c !== list[0]);
+      if (second) list.push(second);
+    }
+    return list.slice(0, maxClues);
+  }
+
   return {
     known: true,
     levels: {
-      1: l1.length ? l1.slice(0, maxClues) : fallback,
-      2: l2.length ? l2.slice(0, maxClues) : fallback,
-      3: l3.length ? l3.slice(0, maxClues) : fallback,
+      1: ensureOllamaCoverage(l1, 0),
+      2: ensureOllamaCoverage(l2, 1),
+      3: ensureOllamaCoverage(l3, candidateLines.length - 1),
     },
     provider: `ollama 2-stage (${SMART_MODEL})`,
   };
