@@ -1114,26 +1114,42 @@
       }, 3200);
     }
 
-    function switchMode(target) {
+    function switchMode(target, pushUrl = true, autoStart = true) {
       modeMainBtn.classList.toggle('active', target === 'main');
       modeSoloBtn.classList.toggle('active', target === 'solo');
 
       mainSection.classList.toggle('hidden', target !== 'main');
       soloSection.classList.toggle('hidden', target !== 'solo');
 
+      if (pushUrl) {
+        const targetPath = target === 'solo' ? '/solo' : '/main';
+        if (window.location.pathname !== targetPath) {
+          window.history.pushState({ mode: target }, '', targetPath);
+        }
+      }
+
       if (target === 'solo') {
         const giveupBtn = document.getElementById('solo-giveup-btn');
         if (giveupBtn && sharedGameBanner && sharedGameBanner.classList.contains('hidden')) {
           giveupBtn.style.display = 'inline-flex';
         }
-        if (!soloSessionId && typeof startSoloGame === 'function') {
+        if (autoStart && !soloSessionId && typeof startSoloGame === 'function') {
           startSoloGame();
         }
       }
     }
 
-    modeMainBtn.addEventListener('click', () => switchMode('main'));
-    modeSoloBtn.addEventListener('click', () => switchMode('solo'));
+    modeMainBtn.addEventListener('click', () => switchMode('main', true));
+    modeSoloBtn.addEventListener('click', () => switchMode('solo', true));
+
+    window.addEventListener('popstate', () => {
+      const path = window.location.pathname;
+      if (path === '/solo') {
+        switchMode('solo', false);
+      } else {
+        switchMode('main', false);
+      }
+    });
 
     // Report modal elements
     const reportModal = document.getElementById('report-modal');
@@ -2090,7 +2106,7 @@
 
     soloNewBtn.addEventListener('click', () => {
       triggerAbandonIfActive();
-      window.history.replaceState(null, '', window.location.pathname);
+      window.history.replaceState({ mode: 'solo' }, '', '/solo');
       sharedGameBanner.classList.add('hidden');
       if (soloFiltersWrap) soloFiltersWrap.classList.remove('hidden');
       soloForm.classList.remove('hidden');
@@ -2099,7 +2115,10 @@
     });
 
     async function loadSharedSoloGame(shareId) {
-      modeSoloBtn.click();
+      switchMode('solo', false, false);
+      if (window.location.pathname !== '/solo') {
+        window.history.replaceState({ mode: 'solo' }, '', `/solo?share=${encodeURIComponent(shareId)}`);
+      }
       soloStatus.textContent = 'Loading shared game chat...';
       if (soloFiltersWrap) soloFiltersWrap.classList.add('hidden');
       soloForm.classList.add('hidden');
@@ -2198,18 +2217,13 @@
     }
 
     sharedPlayBtn.addEventListener('click', () => {
-      window.history.replaceState(null, '', window.location.pathname);
+      window.history.replaceState({ mode: 'solo' }, '', '/solo');
       sharedGameBanner.classList.add('hidden');
       if (soloFiltersWrap) soloFiltersWrap.classList.remove('hidden');
       soloForm.classList.remove('hidden');
       soloGiveupBtn.style.display = 'inline-flex';
       startSoloGame();
     });
-
-    const shareParam = new URLSearchParams(window.location.search).get('share');
-    if (shareParam) {
-      loadSharedSoloGame(shareParam);
-    }
 
     // ========================================================================
     // AUTHENTIK ACCOUNTS, LEADERBOARD & PROFILE MODAL LOGIC
@@ -2339,6 +2353,7 @@
           if (currentAuthUser) {
             lbHeaderLoginLink.classList.add('hidden');
           } else {
+            lbHeaderLoginLink.href = `/auth/login?next=${encodeURIComponent(window.location.pathname)}`;
             lbHeaderLoginLink.classList.remove('hidden');
           }
         }
@@ -2390,7 +2405,7 @@
             <div style="font-size:0.86rem; color:#bbb;">
               Log in to record your wins, claim your unique character, and climb the leaderboard!
             </div>
-            <a href="/auth/login" style="text-decoration:none;">
+            <a href="/auth/login?next=${encodeURIComponent(window.location.pathname)}" style="text-decoration:none;">
               <button type="button" style="font-size:0.82rem; padding:6px 14px; display:inline-flex; align-items:center; gap:6px;">
                 🔑 Log In
               </button>
@@ -2455,7 +2470,7 @@
 
     function openClaimModal(forced = false) {
       if (!currentAuthUser) {
-        window.location.href = '/auth/login';
+        window.location.href = `/auth/login?next=${encodeURIComponent(window.location.pathname)}`;
         return;
       }
       claimSearchInput.value = '';
@@ -2613,19 +2628,35 @@
       }
     });
 
-    // Check connected param on load
+    // Check connected & auth params on load
     const urlParams = new URLSearchParams(window.location.search);
+    const initialPath = window.location.pathname === '/solo' ? '/solo' : '/main';
+
     if (urlParams.get('connected') === '1') {
-      window.history.replaceState(null, '', window.location.pathname);
+      window.history.replaceState({ mode: initialPath.replace('/', '') }, '', initialPath);
       showShareToast('👋 Logged in successfully!');
     }
     if (urlParams.get('auth') === 'no_user') {
-      window.history.replaceState(null, '', window.location.pathname);
+      window.history.replaceState({ mode: initialPath.replace('/', '') }, '', initialPath);
       alert('Login did not provide user credentials.');
     }
 
     // Initialize Auth & Leaderboard
     checkAuthStatus();
+
+    // Initial page mode routing based on URL pathname & share param
+    const shareParam = urlParams.get('share');
+    if (shareParam) {
+      loadSharedSoloGame(shareParam);
+    } else if (window.location.pathname === '/solo') {
+      switchMode('solo', false);
+    } else {
+      switchMode('main', false);
+      if (window.location.pathname !== '/main') {
+        const query = window.location.search ? window.location.search : '';
+        window.history.replaceState({ mode: 'main' }, '', '/main' + query);
+      }
+    }
 
   </script>
 </body>

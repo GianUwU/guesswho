@@ -301,8 +301,13 @@ app.get('/auth/login', (req, res) => {
     ''
   ).trim();
 
+  const nextParam = (req.query.next && req.query.next.startsWith('/') && !req.query.next.startsWith('//'))
+    ? req.query.next
+    : (req.headers.referer ? (new URL(req.headers.referer, 'http://localhost')).pathname : '/');
+  const target = (nextParam === '/solo' ? '/solo' : '/main');
+
   if (!username) {
-    return res.redirect('/?auth=no_user');
+    return res.redirect(`${target}?auth=no_user`);
   }
 
   const token = crypto.randomUUID();
@@ -322,7 +327,7 @@ app.get('/auth/login', (req, res) => {
     maxAge: 365 * 24 * 60 * 60 * 1000,
   });
 
-  res.redirect('/?connected=1');
+  res.redirect(`${target}?connected=1`);
 });
 
 // Authentik Logout endpoint
@@ -413,6 +418,11 @@ app.get(['/admin', '/admin.html'], requireAuthentikAdmin, (req, res) => {
 app.get('/favicon.ico', (req, res) => {
   res.type('image/svg+xml');
   res.sendFile(path.join(__dirname, '..', 'public', 'favicon.svg'));
+});
+
+// Single Page Application routing for main and solo modes
+app.get(['/', '/main', '/solo', '/main/', '/solo/'], (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
@@ -1188,10 +1198,10 @@ async function pickRandomCharacterByMode(category = 'all', difficulty = 'easy', 
   let candidates = [];
 
   // If user is authenticated with a score rating, match within ±10 points
-  // Players with higher rank (>= 20) also get a ~22% chance of an easy/iconic wildcard (0-25) to keep it fun!
+  // Players with higher rank (>= 20) also get a ~10% chance of an easy/iconic wildcard (0-25) to keep it fun!
   if (userScore !== null && typeof userScore === 'number') {
     const targetScore = Math.max(0, Math.min(100, Math.round(userScore)));
-    const rollEasyWildcard = targetScore >= 20 && Math.random() < 0.22;
+    const rollEasyWildcard = targetScore >= 20 && Math.random() < 0.10;
 
     if (rollEasyWildcard) {
       candidates = pool.filter((c) => typeof c.difficulty === 'number' && c.difficulty <= 25);
@@ -2293,7 +2303,9 @@ app.post('/api/solo/share', (req, res) => {
     }
   });
 
-  const shareUrl = `https://guesswho.gian.ink/?share=${shareId}`;
+  const host = req.get('host') || 'guesswho.gian.ink';
+  const proto = req.get('x-forwarded-proto') || 'https';
+  const shareUrl = `${proto}://${host}/solo?share=${shareId}`;
   summaryText += `\nView full chat: ${shareUrl}`;
 
   res.json({
