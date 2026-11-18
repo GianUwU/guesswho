@@ -1132,10 +1132,11 @@
       soloSection.classList.toggle('hidden', target !== 'solo');
 
       if (target === 'solo') {
-        if (sharedGameBanner.classList.contains('hidden')) {
-          soloGiveupBtn.style.display = 'inline-flex';
+        const giveupBtn = document.getElementById('solo-giveup-btn');
+        if (giveupBtn && sharedGameBanner && sharedGameBanner.classList.contains('hidden')) {
+          giveupBtn.style.display = 'inline-flex';
         }
-        if (!soloSessionId) {
+        if (!soloSessionId && typeof startSoloGame === 'function') {
           startSoloGame();
         }
       }
@@ -1736,8 +1737,6 @@
     const soloRevealSeries = document.getElementById('solo-reveal-series');
     const soloGiveupBtn = document.getElementById('solo-giveup-btn');
     const soloNewBtn = document.getElementById('solo-new-btn');
-    let soloSessionId = null;
-    let soloQuestionCount = 0;
     let soloGameOver = true;
 
     const soloFiltersWrap = document.getElementById('solo-filters-wrap');
