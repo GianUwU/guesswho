@@ -875,16 +875,6 @@
             <option value="hard">Hard</option>
           </select>
         </div>
-        <!-- For authenticated users: difficulty is locked and dynamically matched to rating ±10 -->
-        <div id="solo-rating-wrap" class="hidden" style="display:none; padding:6px 12px; background:#181926; border:1px solid #4f46e5; border-radius:6px;">
-          <div style="font-size:0.72rem; color:#a5b4fc; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">
-            Skill Matchmaking
-          </div>
-          <div style="font-size:0.92rem; font-weight:700; color:#fff; display:flex; align-items:center; gap:6px; margin-top:2px;">
-            <span>Rating: <strong id="solo-rating-display" style="color:#818cf8;">0</strong>/100</span>
-            <span id="solo-rating-range" style="font-size:0.75rem; color:#94a3b8; font-weight:normal;">(Target: 0 - 10)</span>
-          </div>
-        </div>
       </div>
 
       <div id="solo-status" class="status">Starting new Solo game...</div>
@@ -1743,30 +1733,14 @@
     const soloCatSelect = document.getElementById('solo-cat-select');
     const soloDiffSelect = document.getElementById('solo-diff-select');
     const soloDiffWrap = document.getElementById('solo-diff-wrap');
-    const soloRatingWrap = document.getElementById('solo-rating-wrap');
-    const soloRatingDisplay = document.getElementById('solo-rating-display');
-    const soloRatingRange = document.getElementById('solo-rating-range');
 
     function updateSoloMatchmakingUI() {
       if (currentAuthUser) {
         if (soloDiffWrap) soloDiffWrap.style.display = 'none';
-        if (soloRatingWrap) {
-          soloRatingWrap.style.display = 'block';
-          soloRatingWrap.classList.remove('hidden');
-        }
-        const score = typeof currentAuthUser.score === 'number' ? currentAuthUser.score : 0;
-        if (soloRatingDisplay) soloRatingDisplay.textContent = score;
-        if (soloRatingRange) {
-          soloRatingRange.textContent = `(Target: ${Math.max(0, score - 10)} - ${Math.min(100, score + 10)})`;
-        }
       } else {
         if (soloDiffWrap) {
           soloDiffWrap.style.display = 'block';
           soloDiffWrap.classList.remove('hidden');
-        }
-        if (soloRatingWrap) {
-          soloRatingWrap.style.display = 'none';
-          soloRatingWrap.classList.add('hidden');
         }
       }
     }
