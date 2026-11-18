@@ -870,9 +870,9 @@
         <div class="select-wrap" id="solo-diff-wrap">
           <label for="solo-diff-select" class="select-label">Difficulty</label>
           <select id="solo-diff-select" class="styled-select">
-            <option value="easy">Easy (0 - 30)</option>
-            <option value="medium">Medium (31 - 60)</option>
-            <option value="hard">Hard (61 - 100)</option>
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
           </select>
         </div>
         <!-- For authenticated users: difficulty is locked and dynamically matched to rating ±10 -->
@@ -881,8 +881,8 @@
             Skill Matchmaking
           </div>
           <div style="font-size:0.92rem; font-weight:700; color:#fff; display:flex; align-items:center; gap:6px; margin-top:2px;">
-            <span>Rating: <strong id="solo-rating-display" style="color:#818cf8;">50</strong>/100</span>
-            <span id="solo-rating-range" style="font-size:0.75rem; color:#94a3b8; font-weight:normal;">(Target: 40 - 60)</span>
+            <span>Rating: <strong id="solo-rating-display" style="color:#818cf8;">0</strong>/100</span>
+            <span id="solo-rating-range" style="font-size:0.75rem; color:#94a3b8; font-weight:normal;">(Target: 0 - 10)</span>
           </div>
         </div>
       </div>
@@ -949,7 +949,7 @@
             <tr>
               <th style="width:44px; text-align:center;">#</th>
               <th>Player</th>
-              <th style="text-align:center;">Score</th>
+              <th style="text-align:center;">Rating</th>
               <th style="text-align:center;">W - L</th>
               <th style="text-align:center;">Win %</th>
               <th class="lb-hide-mobile" style="text-align:center;">Avg Guesses</th>
@@ -1754,7 +1754,7 @@
           soloRatingWrap.style.display = 'block';
           soloRatingWrap.classList.remove('hidden');
         }
-        const score = typeof currentAuthUser.score === 'number' ? currentAuthUser.score : 50;
+        const score = typeof currentAuthUser.score === 'number' ? currentAuthUser.score : 0;
         if (soloRatingDisplay) soloRatingDisplay.textContent = score;
         if (soloRatingRange) {
           soloRatingRange.textContent = `(Target: ${Math.max(0, score - 10)} - ${Math.min(100, score + 10)})`;
@@ -2333,29 +2333,24 @@
               tr.classList.add('lb-row-me');
             }
 
-            let rankBadge = `<span class="lb-rank-badge lb-rank-normal">#${item.rank}</span>`;
-            if (item.rank === 1) rankBadge = `<span class="lb-rank-badge lb-rank-1">🥇</span>`;
-            else if (item.rank === 2) rankBadge = `<span class="lb-rank-badge lb-rank-2">🥈</span>`;
-            else if (item.rank === 3) rankBadge = `<span class="lb-rank-badge lb-rank-3">🥉</span>`;
+            const rankText = `${item.rank}.`;
 
             const charImg = (item.character && item.character.image) ? item.character.image : defaultPfpSvg;
-            const charSub = (item.character && item.character.name) ? `<span class="lb-char-name">as "${escapeHtml(item.character.name)}"</span>` : '';
 
             tr.innerHTML = `
-              <td style="text-align:center;">${rankBadge}</td>
+              <td style="text-align:center; font-weight:700; color:#888; font-size:0.92rem; width:44px;">${rankText}</td>
               <td>
                 <div class="lb-player-cell">
                   <img class="lb-pfp-thumb" src="${escapeHtml(charImg)}" onerror="this.src=defaultPfpSvg" alt="" />
                   <div class="lb-player-info">
                     <span class="lb-username">${escapeHtml(item.username)}</span>
-                    ${charSub}
                   </div>
                 </div>
               </td>
-              <td style="text-align:center; font-weight:800; color:#818cf8; font-size:1.02rem;">${item.score ?? 50}</td>
-              <td style="text-align:center; font-weight:600;">${item.wins} - ${item.losses}</td>
-              <td style="text-align:center; font-weight:700; color:#4ade80;">${item.winRate}%</td>
-              <td class="lb-hide-mobile" style="text-align:center; color:#ccc;">${item.avgGuesses > 0 ? item.avgGuesses : '-'}</td>
+              <td style="text-align:center; font-weight:700; color:#818cf8; font-size:1.0rem;">${item.score ?? 0}</td>
+              <td style="text-align:center; font-weight:600; color:#ddd;">${item.wins} - ${item.losses}</td>
+              <td style="text-align:center; font-weight:600; color:#4ade80;">${item.winRate}%</td>
+              <td class="lb-hide-mobile" style="text-align:center; color:#aaa;">${item.avgGuesses > 0 ? item.avgGuesses : '-'}</td>
             `;
 
             tr.addEventListener('click', () => {
@@ -2379,7 +2374,7 @@
         if (myPlacement && myPlacement.username) {
           lbMyPlacement.classList.remove('hidden');
           const isRanked = Boolean(myPlacement.rank);
-          const userScore = typeof myPlacement.score === 'number' ? myPlacement.score : 50;
+          const userScore = typeof myPlacement.score === 'number' ? myPlacement.score : 0;
           const rounds = Number(myPlacement.rounds) || 0;
           const wins = Number(myPlacement.wins) || 0;
           const losses = Number(myPlacement.losses) || 0;
@@ -2387,9 +2382,8 @@
           const avgG = myPlacement.avgGuesses > 0 ? myPlacement.avgGuesses : '-';
           const char = myPlacement.character;
           const charImg = (char && char.image) ? char.image : defaultPfpSvg;
-          const charSub = (char && char.name) ? `<span class="lb-char-name">as "${escapeHtml(char.name)}"</span>` : '';
 
-          const statusText = `Rank: <strong>#${myPlacement.rank || 1}</strong> of ${data.totalRanked || 1} &bull; Rating: <strong style="color:#818cf8;">${userScore}/100</strong> &bull; Record: <strong>${wins}W - ${losses}L</strong> (${winRate}%) &bull; Avg Guesses: <strong>${avgG}</strong>`;
+          const statusText = `Rank: <strong>${myPlacement.rank || 1}.</strong> of ${data.totalRanked || 1} &bull; Rating: <strong style="color:#818cf8;">${userScore}/100</strong> &bull; Record: <strong>${wins}W - ${losses}L</strong> (${winRate}%) &bull; Avg Guesses: <strong>${avgG}</strong>`;
 
           lbMyPlacement.innerHTML = `
             <div style="display:flex; align-items:center; gap:10px; cursor:pointer;" id="lb-my-profile-trigger" title="Click your name to view profile & change character">
@@ -2397,7 +2391,6 @@
               <div class="lb-player-info">
                 <div style="display:flex; align-items:center; gap:6px;">
                   <span class="lb-username" style="text-decoration:underline; cursor:pointer;">${escapeHtml(myPlacement.username)}</span>
-                  ${charSub}
                   <span style="font-size:0.75rem; color:#ea580c; font-weight:700;">(You)</span>
                 </div>
                 <div style="font-size:0.78rem; color:#aaa; margin-top:2px;">
@@ -2456,7 +2449,7 @@
         }
         profileModalImg.onerror = () => { profileModalImg.src = placeholderImg; };
 
-        const userScore = typeof u.score === 'number' ? u.score : 50;
+        const userScore = typeof u.score === 'number' ? u.score : 0;
         const scoreEl = document.getElementById('profile-stat-score');
         if (scoreEl) {
           scoreEl.innerHTML = `${userScore} <span style="font-size:0.85rem; color:#94a3b8; font-weight:500;">/ 100</span>`;
@@ -2467,7 +2460,7 @@
         profileStatRounds.textContent = `${u.rounds}`;
         profileStatGuesses.textContent = u.avgGuesses > 0 ? `${u.avgGuesses}` : '-';
         profileStatBest.textContent = u.bestWin ? `${u.bestWin} questions` : '-';
-        profileStatRank.textContent = u.rank ? `#${u.rank}` : `Unranked`;
+        profileStatRank.textContent = u.rank ? `${u.rank}.` : '1.';
 
         const isSelf = currentAuthUser && currentAuthUser.username.toLowerCase() === u.username.toLowerCase();
         if (isSelf) {

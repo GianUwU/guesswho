@@ -85,6 +85,14 @@ function saveStore(storeData) {
 
 let appStore = loadStore();
 
+// Reset all existing player ratings to 0 as requested
+if (appStore.users) {
+  for (const u of Object.values(appStore.users)) {
+    u.score = 0;
+  }
+  saveStore(appStore);
+}
+
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '2mb' }));
 
@@ -106,7 +114,7 @@ function ensureUserRecord(username) {
     appStore.users[cleanName] = {
       username: cleanName,
       character: null,
-      score: 50, // Skill rating (0 easiest to 100 hardest; starts at 50)
+      score: 0, // Skill rating starts at 0
       wins: 0,
       losses: 0,
       rounds: 0,
@@ -118,7 +126,7 @@ function ensureUserRecord(username) {
     };
   } else {
     if (typeof appStore.users[cleanName].score !== 'number') {
-      appStore.users[cleanName].score = 50;
+      appStore.users[cleanName].score = 0;
     }
     appStore.users[cleanName].lastActive = Date.now();
   }
@@ -171,7 +179,7 @@ function getUserStats(u, rank = null) {
     : (rounds > 0 ? Number((Number(u.totalGuesses || 0) / rounds).toFixed(1)) : 0);
   const score = typeof u.score === 'number'
     ? Math.max(0, Math.min(100, Math.round(u.score)))
-    : 50;
+    : 0;
 
   return {
     username: u.username,
@@ -1169,16 +1177,23 @@ async function pickRandomCharacterByMode(category = 'all', difficulty = 'easy', 
 
   let candidates = [];
 
-  // If user is authenticated with a score rating, strictly match within ±10 points (expanding dynamically if needed)
+  // If user is authenticated with a score rating, match within ±10 points
+  // Players with higher rank (>= 20) also get a ~22% chance of an easy/iconic wildcard (0-25) to keep it fun!
   if (userScore !== null && typeof userScore === 'number') {
     const targetScore = Math.max(0, Math.min(100, Math.round(userScore)));
-    let range = 10;
-    while (range <= 40) {
-      const minD = Math.max(0, targetScore - range);
-      const maxD = Math.min(100, targetScore + range);
-      candidates = pool.filter((c) => typeof c.difficulty === 'number' && c.difficulty >= minD && c.difficulty <= maxD);
-      if (candidates.length >= 12) break;
-      range += 5;
+    const rollEasyWildcard = targetScore >= 20 && Math.random() < 0.22;
+
+    if (rollEasyWildcard) {
+      candidates = pool.filter((c) => typeof c.difficulty === 'number' && c.difficulty <= 25);
+    } else {
+      let range = 10;
+      while (range <= 40) {
+        const minD = Math.max(0, targetScore - range);
+        const maxD = Math.min(100, targetScore + range);
+        candidates = pool.filter((c) => typeof c.difficulty === 'number' && c.difficulty >= minD && c.difficulty <= maxD);
+        if (candidates.length >= 12) break;
+        range += 5;
+      }
     }
   } else {
     // Unauthenticated players: Easy (0-30), Medium (31-60), Hard (61-100)
@@ -1640,7 +1655,7 @@ function recordSoloGameResult(sessionId, isWin, req) {
   user.rounds = (Number(user.rounds) || 0) + 1;
   user.totalGuesses = (Number(user.totalGuesses) || 0) + questionCount;
 
-  const currentScore = typeof user.score === 'number' ? user.score : 50;
+  const currentScore = typeof user.score === 'number' ? user.score : 0;
   const charDiff = typeof session.characterDifficulty === 'number' ? session.characterDifficulty : 50;
 
   if (isWin) {
@@ -1675,7 +1690,7 @@ app.post('/api/solo/start', async (req, res) => {
         if (sess.username === currentUser.username && !sess.recorded && !sess.abandoned && sess.history && sess.history.length > 0) {
           sess.abandoned = true;
           sess.recorded = true;
-          const currScore = typeof currentUser.score === 'number' ? currentUser.score : 50;
+          const currScore = typeof currentUser.score === 'number' ? currentUser.score : 0;
           currentUser.score = Math.max(0, currScore - 5);
           currentUser.losses = (Number(currentUser.losses) || 0) + 1;
           currentUser.rounds = (Number(currentUser.rounds) || 0) + 1;
@@ -1685,7 +1700,7 @@ app.post('/api/solo/start', async (req, res) => {
       }
     }
 
-    const userScore = currentUser ? (typeof currentUser.score === 'number' ? currentUser.score : 50) : null;
+    const userScore = currentUser ? (typeof currentUser.score === 'number' ? currentUser.score : 0) : null;
     const baseChar = await pickRandomCharacterByMode(category, difficulty, userScore);
     if (!baseChar) {
       return res.status(500).json({ error: 'Could not pick a random character for Solo Mode.' });
@@ -1756,7 +1771,7 @@ app.post('/api/solo/abandon', (req, res) => {
 
   const user = getAuthenticatedUser(req) || (session.username ? ensureUserRecord(session.username) : null);
   if (user && session.history && session.history.length > 0) {
-    const currScore = typeof user.score === 'number' ? user.score : 50;
+    const currScore = typeof user.score === 'number' ? user.score : 0;
     user.score = Math.max(0, currScore - 5);
     user.losses = (Number(user.losses) || 0) + 1;
     user.rounds = (Number(user.rounds) || 0) + 1;

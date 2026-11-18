@@ -265,6 +265,16 @@
   </div>
 
   <script>
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     const btnGemini = document.getElementById('btn-gemini');
     const btnOllama = document.getElementById('btn-ollama');
     const subGemini = document.getElementById('sub-gemini');
@@ -570,7 +580,8 @@
       try {
         const res = await fetch(`/api/admin/character-difficulty?q=${encodeURIComponent(q)}`);
         if (!res.ok) {
-          charDiffStatus.textContent = 'Error querying difficulty scores.';
+          const errData = await res.json().catch(() => ({}));
+          charDiffStatus.textContent = errData.error || `Server responded with status ${res.status}`;
           return;
         }
         const data = await res.json();
@@ -591,7 +602,8 @@
           charDiffResults.appendChild(renderDiffCard(c));
         });
       } catch (err) {
-        charDiffStatus.textContent = 'Failed to lookup character difficulty.';
+        console.error('[Diff Lookup Error]', err);
+        charDiffStatus.textContent = 'Failed to lookup character difficulty: ' + err.message;
       }
     }
 
