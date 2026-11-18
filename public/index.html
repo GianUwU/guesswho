@@ -934,7 +934,7 @@
         <div style="display:flex; align-items:center; gap:8px;">
           <a href="/auth/login" id="lb-header-login-link" class="hidden" style="text-decoration:none;">
             <button type="button" style="padding:5px 12px; font-size:0.8rem; display:inline-flex; align-items:center; gap:5px;">
-              🔑 Connect
+              🔑 Log In
             </button>
           </a>
           <button id="lb-refresh-btn" class="secondary" type="button" style="padding:5px 10px; font-size:0.8rem;">
@@ -962,7 +962,7 @@
       </div>
 
       <div id="lb-empty" class="status hidden" style="text-align:center; padding:18px 0; color:#888;">
-        No players registered yet. Connect to join the leaderboard!
+        No players registered yet. Log in to join the leaderboard!
       </div>
 
       <!-- Pinned Current User Placement -->
@@ -2422,11 +2422,11 @@
           lbMyPlacement.classList.remove('hidden');
           lbMyPlacement.innerHTML = `
             <div style="font-size:0.86rem; color:#bbb;">
-              Connect with Authentik to record your wins, claim your unique character, and climb the leaderboard!
+              Log in to record your wins, claim your unique character, and climb the leaderboard!
             </div>
             <a href="/auth/login" style="text-decoration:none;">
               <button type="button" style="font-size:0.82rem; padding:6px 14px; display:inline-flex; align-items:center; gap:6px;">
-                🔑 Connect with Authentik
+                🔑 Log In
               </button>
             </a>
           `;
@@ -2651,11 +2651,11 @@
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('connected') === '1') {
       window.history.replaceState(null, '', window.location.pathname);
-      showShareToast('👋 Connected with Authentik!');
+      showShareToast('👋 Logged in successfully!');
     }
     if (urlParams.get('auth') === 'no_user') {
       window.history.replaceState(null, '', window.location.pathname);
-      alert('Authentik login did not provide username headers.');
+      alert('Login did not provide user credentials.');
     }
 
     // Initialize Auth & Leaderboard
