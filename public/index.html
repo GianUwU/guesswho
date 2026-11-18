@@ -2034,7 +2034,7 @@
 
           setTimeout(() => {
             soloShareBtn.disabled = false;
-            soloShareBtn.textContent = '📤 Share Chat';
+            soloShareBtn.textContent = 'Share';
           }, 3500);
         } else {
           alert(data.error || 'Could not share game.');
@@ -2104,9 +2104,19 @@
 
           showSoloCharacterReveal(char, s.guessed ? '🎉 Secret Character Guessed!' : 'Secret Character', s.guessed ? '#4ade80' : '#facc15');
 
-          // Render Q&A log
+          // Ensure final winning guess is present if game was guessed
+          const hasGuessedItem = s.history.some((h) => h.verdict === 'GUESSED');
+          if (s.guessed && !hasGuessedItem && char && char.name) {
+            s.history.push({
+              question: `Final Guess (${char.name})`,
+              answer: `🎉 Yes! You guessed it — the character is ${char.name}!`,
+              verdict: 'GUESSED',
+              heat: 'hot',
+            });
+          }
+
           soloQaLog.innerHTML = '';
-          soloQCount.textContent = `Questions: ${s.questionCount}`;
+          soloQCount.textContent = `Questions: ${s.history.length}`;
           s.history.forEach((h, idx) => {
             const row = document.createElement('div');
             row.className = 'qa-item';
@@ -2118,7 +2128,12 @@
             const ansWrap = document.createElement('div');
             ansWrap.className = 'qa-ans-wrap';
 
-            if (h.heat === 'hot') {
+            if (h.verdict === 'GUESSED') {
+              const badge = document.createElement('span');
+              badge.className = 'heat-badge heat-hot';
+              badge.textContent = '🎉 GUESSED!';
+              ansWrap.appendChild(badge);
+            } else if (h.heat === 'hot') {
               const badge = document.createElement('span');
               badge.className = 'heat-badge heat-hot';
               badge.textContent = '🔥 HOT!';
@@ -2136,10 +2151,11 @@
             }
 
             const aEl = document.createElement('span');
-            const ans = h.answer || '';
-            const isYes = h.verdict === 'YES' || (h.verdict !== 'NO' && /\byes\b/i.test(ans));
-            const isNo = h.verdict === 'NO' || /\b(no|nope)\b/i.test(ans);
-            aEl.className = `qa-a ${isYes ? 'yes' : isNo ? 'no' : 'unknown'}`;
+            const ans = h.answer || (h.verdict === 'GUESSED' ? `🎉 Yes! You guessed it — the character is ${char.name}!` : '');
+            const isGuessedVerdict = h.verdict === 'GUESSED';
+            const isYes = isGuessedVerdict || h.verdict === 'YES' || (h.verdict !== 'NO' && /\byes\b/i.test(ans));
+            const isNo = !isGuessedVerdict && (h.verdict === 'NO' || /\b(no|nope)\b/i.test(ans));
+            aEl.className = `qa-a ${isGuessedVerdict || isYes ? 'yes' : isNo ? 'no' : 'unknown'}`;
             aEl.textContent = ans;
             ansWrap.appendChild(aEl);
 

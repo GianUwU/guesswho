@@ -51,6 +51,7 @@ function loadStore() {
       const parsed = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
       return {
         similarityProvider: parsed.similarityProvider === 'ollama' ? 'ollama' : 'gemini',
+        replaceAllOllamaWithGemini: Boolean(parsed.replaceAllOllamaWithGemini),
         requestedCharacters: Array.isArray(parsed.requestedCharacters)
           ? parsed.requestedCharacters
           : [],
@@ -65,6 +66,7 @@ function loadStore() {
   }
   return {
     similarityProvider: 'gemini',
+    replaceAllOllamaWithGemini: false,
     requestedCharacters: [],
     reportedTips: [],
     soloShares: [],
@@ -1407,6 +1409,7 @@ app.get('/api/admin/state', (req, res) => {
   res.json({
     adminUser: req.adminUser,
     similarityProvider: appStore.similarityProvider,
+    replaceAllOllamaWithGemini: Boolean(appStore.replaceAllOllamaWithGemini),
     geminiModel: GEMINI_MODEL,
     ollamaModel: SMART_MODEL,
     requestedCharacters: appStore.requestedCharacters,
@@ -1415,15 +1418,21 @@ app.get('/api/admin/state', (req, res) => {
 });
 
 app.post('/api/admin/settings', (req, res) => {
-  const { similarityProvider } = req.body || {};
-  if (similarityProvider !== 'gemini' && similarityProvider !== 'ollama') {
-    return res.status(400).json({ error: 'Invalid similarityProvider. Must be "gemini" or "ollama".' });
+  const { similarityProvider, replaceAllOllamaWithGemini } = req.body || {};
+  if (similarityProvider !== undefined) {
+    if (similarityProvider !== 'gemini' && similarityProvider !== 'ollama') {
+      return res.status(400).json({ error: 'Invalid similarityProvider. Must be "gemini" or "ollama".' });
+    }
+    appStore.similarityProvider = similarityProvider;
   }
-  appStore.similarityProvider = similarityProvider;
+  if (replaceAllOllamaWithGemini !== undefined) {
+    appStore.replaceAllOllamaWithGemini = Boolean(replaceAllOllamaWithGemini);
+  }
   saveStore(appStore);
   res.json({
     ok: true,
     similarityProvider: appStore.similarityProvider,
+    replaceAllOllamaWithGemini: Boolean(appStore.replaceAllOllamaWithGemini),
   });
 });
 
@@ -1702,7 +1711,19 @@ ${historyText}
 Use the dossier and previous conversation context (e.g., if the user references previous questions like "are they still alive" or "does he also...") to evaluate this question accurately.
 Respond with JSON:`;
 
-  // Solo mode strictly uses Ollama for answering Yes/No 20-Questions
+  // If Replace All Ollama with Gemini is active, use Gemini API directly
+  if (appStore.replaceAllOllamaWithGemini && GEMINI_API_KEY) {
+    try {
+      const { parsed } = await callGeminiJSON(systemPrompt, userPrompt, 0.2);
+      if (parsed && typeof parsed === 'object') {
+        return parsed;
+      }
+    } catch (gemErr) {
+      console.warn('[Solo Gemini AI error, fallback to Ollama]', gemErr.message);
+    }
+  }
+
+  // Solo mode uses Ollama by default for answering Yes/No 20-Questions
   const ollamaResponse = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1946,7 +1967,16 @@ app.post('/api/solo/share', (req, res) => {
   }
 
   const shareId = crypto.randomUUID().slice(0, 8);
-  const isGuessed = session.history.some((h) => h.verdict === 'GUESSED');
+  const isGuessed = Boolean(session.guessed || session.history.some((h) => h.verdict === 'GUESSED'));
+  if (isGuessed && !session.history.some((h) => h.verdict === 'GUESSED')) {
+    const winMsg = `🎉 Yes! You guessed it — the character is ${session.character.name}!`;
+    session.history.push({
+      question: `Guess: ${session.character.name}`,
+      answer: winMsg,
+      heat: 'hot',
+      verdict: 'GUESSED',
+    });
+  }
 
   const shareRecord = {
     shareId,
@@ -1989,7 +2019,12 @@ app.post('/api/solo/share', (req, res) => {
     else if (h.verdict === 'YES') verdictIcon = '👍';
     else if (h.verdict === 'NO') verdictIcon = '🙅';
 
-    summaryText += `${idx + 1}. ${h.question} -> ${verdictIcon}${heatIcon}\n`;
+    if (h.verdict === 'GUESSED') {
+      const winAns = h.answer || `🎉 Yes! You guessed it — the character is ${session.character.name}!`;
+      summaryText += `${idx + 1}. ${h.question} -> ${winAns}\n`;
+    } else {
+      summaryText += `${idx + 1}. ${h.question} -> ${verdictIcon}${heatIcon}\n`;
+    }
   });
 
   const shareUrl = `https://guesswho.gian.ink/?share=${shareId}`;
@@ -2047,6 +2082,38 @@ Dossier:
 ${dossier.description.slice(0, 1200)}
 
 Question: "${userQ}"`;
+
+    // If Replace All Ollama with Gemini is active, use Gemini API directly
+    if (appStore.replaceAllOllamaWithGemini && GEMINI_API_KEY) {
+      try {
+        const geminiPrompt = `${systemPrompt}\n\n${userPrompt}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODELS[0]}:generateContent?key=${GEMINI_API_KEY}`;
+        const resG = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: geminiPrompt }] }],
+            generationConfig: { temperature: 0.1, maxOutputTokens: 120 },
+          }),
+          signal: AbortSignal.timeout(12000),
+        });
+        if (resG.ok) {
+          const dataG = await resG.json();
+          const rawG = (dataG?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+          const ansMatch = rawG.match(/ANSWER\s*:\s*([^\n]+)/i);
+          const ansText = (ansMatch ? ansMatch[1] : rawG).trim();
+          let finalAnswer = "I don't know (not enough confirmed info).";
+          if (/^yes\b/i.test(ansText)) {
+            finalAnswer = 'Yes.';
+          } else if (/^no\b/i.test(ansText)) {
+            finalAnswer = 'No.';
+          }
+          return res.json({ answer: finalAnswer });
+        }
+      } catch (geminiErr) {
+        console.warn('[Character Ask Gemini Error, fallback to Ollama]', geminiErr.message);
+      }
+    }
 
     const ollamaResponse = await fetch(`${OLLAMA_URL}/api/chat`, {
       method: 'POST',
@@ -2450,12 +2517,17 @@ app.post('/api/similarity', async (req, res) => {
         : '';
 
     let result;
-    if (appStore.similarityProvider === 'gemini') {
+    const useGemini = Boolean(appStore.replaceAllOllamaWithGemini || appStore.similarityProvider === 'gemini');
+    if (useGemini) {
       try {
         result = await generateSimilarityWithGemini(dossiers, avoidCluesText);
       } catch (gemErr) {
-        console.warn('[Gemini Fallback to Ollama]', gemErr.message);
-        result = await generateSimilarityWithOllama(dossiers, avoidCluesText);
+        if (!appStore.replaceAllOllamaWithGemini) {
+          console.warn('[Gemini Fallback to Ollama]', gemErr.message);
+          result = await generateSimilarityWithOllama(dossiers, avoidCluesText);
+        } else {
+          throw gemErr;
+        }
       }
     } else {
       result = await generateSimilarityWithOllama(dossiers, avoidCluesText);

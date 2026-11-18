@@ -112,6 +112,45 @@
       text-align: center;
       font-size: 0.9rem;
     }
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 52px;
+      height: 28px;
+    }
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #27272a;
+      border: 1px solid #3f3f46;
+      transition: 0.2s;
+      border-radius: 28px;
+    }
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 20px;
+      width: 20px;
+      left: 3px;
+      bottom: 3px;
+      background-color: #e4e4e7;
+      transition: 0.2s;
+      border-radius: 50%;
+    }
+    input:checked + .toggle-slider {
+      background-color: #ea580c;
+      border-color: #f97316;
+    }
+    input:checked + .toggle-slider:before {
+      transform: translateX(24px);
+      background-color: #ffffff;
+    }
   </style>
 </head>
 <body>
@@ -142,7 +181,29 @@
     <div id="provider-status" class="status"></div>
   </div>
 
-  <!-- 2. Requested Characters List -->
+  <!-- 2. Replace All Ollama with Gemini API Toggle -->
+  <div class="card" style="border-color: rgba(234, 88, 12, 0.35);">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+      <div style="flex:1; min-width:260px;">
+        <h2 style="display:flex; align-items:center; gap:8px;">
+          ⚡ Replace All Ollama with Gemini API
+        </h2>
+        <div style="font-size:0.86rem; color:#999; margin-top:4px; line-height:1.45;">
+          When active, <strong>all LLM features</strong> (Solo 20-Questions AI judge, character fact helper, and similarity clue generation) are served by the <strong>Google Gemini API</strong> instead of local Ollama on the server.
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px; margin-top:4px;">
+        <label class="toggle-switch">
+          <input type="checkbox" id="toggle-replace-all" />
+          <span class="toggle-slider"></span>
+        </label>
+        <span id="toggle-replace-label" style="font-weight:700; font-size:0.92rem; color:#888;">OFF</span>
+      </div>
+    </div>
+    <div id="replace-status" class="status"></div>
+  </div>
+
+  <!-- 3. Requested Characters List -->
   <div class="card">
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <h2 style="margin:0;">Requested Characters</h2>
@@ -325,11 +386,48 @@
       reportsContainer.appendChild(table);
     }
 
+    const toggleReplaceAll = document.getElementById('toggle-replace-all');
+    const toggleReplaceLabel = document.getElementById('toggle-replace-label');
+    const replaceStatus = document.getElementById('replace-status');
+
+    function updateReplaceAllUI(enabled) {
+      toggleReplaceAll.checked = Boolean(enabled);
+      if (enabled) {
+        toggleReplaceLabel.textContent = 'ON (All Gemini)';
+        toggleReplaceLabel.style.color = '#4ade80';
+      } else {
+        toggleReplaceLabel.textContent = 'OFF (Normal)';
+        toggleReplaceLabel.style.color = '#888';
+      }
+    }
+
+    toggleReplaceAll.addEventListener('change', async () => {
+      const isChecked = toggleReplaceAll.checked;
+      replaceStatus.textContent = 'Saving setting...';
+      try {
+        const res = await fetch('/api/admin/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ replaceAllOllamaWithGemini: isChecked })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          updateReplaceAllUI(data.replaceAllOllamaWithGemini);
+          replaceStatus.textContent = isChecked
+            ? '⚡ All Ollama LLM features are now replaced with Gemini API!'
+            : 'Ollama is now restored for Solo Mode and Fact Helper.';
+        }
+      } catch (err) {
+        replaceStatus.textContent = 'Failed to update setting.';
+      }
+    });
+
     async function loadAdminState() {
       try {
         const res = await fetch('/api/admin/state');
         const data = await res.json();
         updateProviderUI(data.similarityProvider, data.geminiModel, data.ollamaModel);
+        updateReplaceAllUI(data.replaceAllOllamaWithGemini);
         renderRequests(data.requestedCharacters || []);
         renderReports(data.reportedTips || []);
       } catch (err) {
