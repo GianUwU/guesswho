@@ -426,6 +426,16 @@ const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
 // Categorized character database with category & obscurity/difficulty tags
 const CHARACTER_DATABASE = require('./characters');
 
+// Sync dynamically adjusted character difficulties from persistent appStore
+if (appStore.characterDifficulties) {
+  for (const c of CHARACTER_DATABASE) {
+    const k = c.name.toLowerCase();
+    if (typeof appStore.characterDifficulties[k] === 'number') {
+      c.difficulty = appStore.characterDifficulties[k];
+    }
+  }
+}
+
 const RANDOM_CHARACTER_POOL = CHARACTER_DATABASE.map((c) => c.name);
 
 function stripHtmlAndSpoilers(text = '') {
@@ -1532,6 +1542,7 @@ app.get('/api/admin/character-difficulty', async (req, res) => {
 
   for (const c of CHARACTER_DATABASE) {
     const cLower = c.name.toLowerCase();
+    const stats = appStore.characterStats?.[cLower] || null;
     if (cLower === qLower) {
       matches.unshift({
         name: c.name,
@@ -1539,6 +1550,7 @@ app.get('/api/admin/character-difficulty', async (req, res) => {
         category: c.category,
         difficulty: c.difficulty,
         exact: true,
+        stats,
       });
     } else if (cLower.includes(qLower)) {
       matches.push({
@@ -1547,6 +1559,7 @@ app.get('/api/admin/character-difficulty', async (req, res) => {
         category: c.category,
         difficulty: c.difficulty,
         exact: false,
+        stats,
       });
     }
     if (matches.length >= 35) break;
@@ -1641,6 +1654,61 @@ function isNonYesNoQuestion(text = '') {
   return false;
 }
 
+// Dynamic character difficulty adaptation based on player performance
+function adjustCharacterDifficulty(charName, isWin, questionCount = 0) {
+  if (!charName) return null;
+  const key = charName.trim().toLowerCase();
+  const c = CHARACTER_DATABASE.find(
+    (item) => item.name.toLowerCase() === key || item.name.replace(/\s*\([^)]+\)$/, '').trim().toLowerCase() === key
+  );
+  if (!c) return null;
+
+  if (!appStore.characterDifficulties) appStore.characterDifficulties = {};
+  if (!appStore.characterStats) appStore.characterStats = {};
+  if (!appStore.characterStats[key]) {
+    appStore.characterStats[key] = {
+      name: c.name,
+      plays: 0,
+      wins: 0,
+      losses: 0,
+      totalGuesses: 0,
+      currentDiff: typeof c.difficulty === 'number' ? c.difficulty : 50,
+    };
+  }
+
+  const stats = appStore.characterStats[key];
+  stats.plays += 1;
+  stats.totalGuesses += questionCount;
+
+  let delta = 0;
+  if (isWin) {
+    stats.wins += 1;
+    // When players guess a character easily/quickly, the character's difficulty rating drops!
+    if (questionCount <= 6) {
+      delta = -3; // Guessed super quickly -> significantly easier
+    } else if (questionCount <= 12) {
+      delta = -2; // Guessed moderately quickly
+    } else if (questionCount <= 18) {
+      delta = -1; // Standard guess
+    } else {
+      delta = 0; // Took almost 20 questions
+    }
+  } else {
+    stats.losses += 1;
+    // When players give up or reload/abandon, the character proved tough -> difficulty increases!
+    delta = 2;
+  }
+
+  const oldDiff = typeof c.difficulty === 'number' ? c.difficulty : 50;
+  const newDiff = Math.max(0, Math.min(100, oldDiff + delta));
+  c.difficulty = newDiff;
+  stats.currentDiff = newDiff;
+  appStore.characterDifficulties[key] = newDiff;
+  saveStore(appStore);
+
+  return newDiff;
+}
+
 function recordSoloGameResult(sessionId, isWin, req) {
   if (!sessionId || !soloSessions.has(sessionId)) return null;
   const session = soloSessions.get(sessionId);
@@ -1654,6 +1722,11 @@ function recordSoloGameResult(sessionId, isWin, req) {
   const questionCount = (session.history ? session.history.length : 0) + (isWin ? 1 : 0);
   user.rounds = (Number(user.rounds) || 0) + 1;
   user.totalGuesses = (Number(user.totalGuesses) || 0) + questionCount;
+
+  // Dynamically update the character's own difficulty rating based on how easily/tough it was to guess
+  if (session.character && session.character.name) {
+    adjustCharacterDifficulty(session.character.name, isWin, questionCount);
+  }
 
   const currentScore = typeof user.score === 'number' ? user.score : 0;
   const charDiff = typeof session.characterDifficulty === 'number' ? session.characterDifficulty : 50;
@@ -1684,14 +1757,17 @@ app.post('/api/solo/start', async (req, res) => {
     const { category = 'all', difficulty = 'easy' } = req.body || {};
     const currentUser = getAuthenticatedUser(req);
 
-    // If an authenticated player had an unfinished active game with questions, count as an abandon penalty
+    // If an authenticated player had an unfinished active game with questions, count as an abandon penalty (-6, same as Give Up)
     if (currentUser) {
       for (const [id, sess] of soloSessions.entries()) {
         if (sess.username === currentUser.username && !sess.recorded && !sess.abandoned && sess.history && sess.history.length > 0) {
           sess.abandoned = true;
           sess.recorded = true;
+          if (sess.character && sess.character.name) {
+            adjustCharacterDifficulty(sess.character.name, false, sess.history.length);
+          }
           const currScore = typeof currentUser.score === 'number' ? currentUser.score : 0;
-          currentUser.score = Math.max(0, currScore - 5);
+          currentUser.score = Math.max(0, currScore - 6);
           currentUser.losses = (Number(currentUser.losses) || 0) + 1;
           currentUser.rounds = (Number(currentUser.rounds) || 0) + 1;
           currentUser.lastActive = Date.now();
@@ -1743,7 +1819,7 @@ app.post('/api/solo/start', async (req, res) => {
   }
 });
 
-// Abandon Solo Game Endpoint (triggered by page reload, close, or navigating away during active game)
+// Abandon Solo Game Endpoint (triggered by page reload, close, or navigating away during active game: -6 points, same as Give Up)
 app.post('/api/solo/abandon', (req, res) => {
   let sessionId = null;
   if (typeof req.body === 'string') {
@@ -1770,9 +1846,14 @@ app.post('/api/solo/abandon', (req, res) => {
   session.recorded = true;
 
   const user = getAuthenticatedUser(req) || (session.username ? ensureUserRecord(session.username) : null);
-  if (user && session.history && session.history.length > 0) {
+  const qCount = session.history ? session.history.length : 0;
+  if (session.character && session.character.name && qCount > 0) {
+    adjustCharacterDifficulty(session.character.name, false, qCount);
+  }
+
+  if (user && qCount > 0) {
     const currScore = typeof user.score === 'number' ? user.score : 0;
-    user.score = Math.max(0, currScore - 5);
+    user.score = Math.max(0, currScore - 6); // Exactly identical to Give Up
     user.losses = (Number(user.losses) || 0) + 1;
     user.rounds = (Number(user.rounds) || 0) + 1;
     user.lastActive = Date.now();

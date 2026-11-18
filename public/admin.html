@@ -563,7 +563,10 @@
         </div>
         <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:#64748b; margin-top:4px;">
           <span>${badge.desc}</span>
-          ${c.note ? `<span style="color:#f59e0b;">${escapeHtml(c.note)}</span>` : ''}
+          <span>
+            ${c.stats && c.stats.plays ? `<strong style="color:#a78bfa;">🎮 ${c.stats.plays} play${c.stats.plays > 1 ? 's' : ''} (${c.stats.wins}W - ${c.stats.losses}L)</strong> ` : ''}
+            ${c.note ? `<span style="color:#f59e0b;">${escapeHtml(c.note)}</span>` : ''}
+          </span>
         </div>
       `;
       return div;
