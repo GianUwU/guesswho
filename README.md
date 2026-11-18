@@ -38,7 +38,6 @@ Live: **[https://guesswho.gian.ink](https://guesswho.gian.ink)**
 ## 🎨 UI & Design Highlights
 
 - **Dark Mode Aesthetic**: Custom dark theme with deep slate backgrounds (`#121212`) and glowing energetic orange accents (`#ea580c`).
-- **Smooth Layout-Locked Loading Animation**: Fixed-width three-dot cycle (`.`, `..`, `...`) with opacity transitions that keeps the text stationary with zero horizontal jitter or layout shift.
 - **Responsive Layout**: Optimized 3-column desktop layout with collapsible side wings and stacked mobile views.
 
 ---
