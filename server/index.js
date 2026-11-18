@@ -1300,20 +1300,20 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// Autocomplete & Series Character Search Endpoint
-app.get('/api/characters/search', async (req, res) => {
+// Autocomplete & Series Character Search Endpoint (supports both route aliases)
+app.get(['/api/characters/search', '/api/character-search'], async (req, res) => {
   const q = (req.query.q || '').trim();
 
   if (q.length < 2) {
-    return res.json({ results: [] });
+    return res.json({ results: [], characters: [] });
   }
 
   try {
     const results = await performHybridSearch(q);
-    res.json({ results });
+    res.json({ results, characters: results });
   } catch (err) {
     console.error('[Search Error]', err);
-    res.status(500).json({ error: 'Failed to search characters', results: [] });
+    res.status(500).json({ error: 'Failed to search characters', results: [], characters: [] });
   }
 });
 
