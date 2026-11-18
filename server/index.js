@@ -1844,6 +1844,7 @@ app.post('/api/solo/start', async (req, res) => {
       character: {
         name: dossier.name || baseChar.name,
         series: dossier.series || baseChar.series,
+        category: baseChar.category || category,
         image: dossier.image || baseChar.image,
         description: dossier.description || baseChar.description,
       },
@@ -1954,14 +1955,112 @@ function isStandardDemographicQuestion(text) {
   return false;
 }
 
+function verifyGuessMatchesCharacter(userQ, char) {
+  if (!userQ || !char || !char.name) return false;
+
+  const cleanChar = char.name.toLowerCase()
+    .replace(/\s*\([^)]+\)$/, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  const cleanQ = userQ.toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // 1. Direct full substring match
+  if (cleanQ.includes(cleanChar)) return true;
+
+  // 2. Distinctive name parts (non-stopwords)
+  const stopwords = new Set(['and', 'mr', 'mrs', 'dr', 'sir', 'lord', 'captain', 'king', 'queen', 'prince', 'princess', 'of']);
+  const charTokens = cleanChar.split(/\s+/).filter((t) => t.length >= 3 && !stopwords.has(t) && t !== 'the');
+
+  const guessTarget = cleanQ
+    .replace(/^(is\s+(it|the\s+character|he|she)|are\s+you|guess|my\s+guess\s+is)\s+/, '')
+    .replace(/^(the|a|an)\s+/, '')
+    .trim();
+
+  if (guessTarget && cleanChar) {
+    if (guessTarget === cleanChar || cleanChar.replace(/^the\s+/, '') === guessTarget) return true;
+  }
+
+  const matchedTokens = charTokens.filter((t) => {
+    return new RegExp(`\\b${t}\\b`, 'i').test(cleanQ);
+  });
+
+  if (matchedTokens.length > 0) {
+    if (charTokens.length === 1 && matchedTokens.length === 1) return true;
+    if (charTokens.length >= 2 && matchedTokens.length >= 1) {
+      const firstToken = charTokens[0];
+      if (matchedTokens.includes(firstToken) && firstToken.length >= 4) return true;
+      if (matchedTokens.length >= 2) return true;
+    }
+  }
+
+  return false;
+}
+
+function isExplicitCharacterGuess(q) {
+  const norm = (q || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!norm) return false;
+
+  // Patterns like "is it X", "are you X", "is the character X", "is he X", "is she X"
+  if (/^(is\s+(it|the\s+character|he|she)|are\s+you)\s+([a-z0-9\s]+)$/i.test(norm)) {
+    const target = norm.replace(/^(is\s+(it|the\s+character|he|she)|are\s+you)\s+/, '').trim();
+    const traitPrefixes = /^(a|an|the)?\s*(male|female|man|woman|boy|girl|human|animal|alive|dead|real|fictional|good|evil|hero|villain|tall|short|old|young|robot|alien|monster|god|ghost|ninja|pirate|wizard|soldier|cop|doctor|student|teacher|playable|from|in|with|having|part\s+of|based\s+on|wearing|holding|carrying|capable\s+of)\b/i;
+    if (traitPrefixes.test(target) && target.split(' ').length <= 4) {
+      return false; // Trait question (e.g. "is he a male", "is it a human", "are you from an anime")
+    }
+    const commonSpeciesOrObjects = /^(a|an|the)?\s*(dog|cat|turtle|rabbit|hare|bird|duck|mouse|bear|fox|wolf|fish|dragon|horse|pig|lion|tiger|frog|snake|insect|bug|spider|tree|flower|car|robot|plane|train|ship|sword|gun|chess\s+piece|piece|item|weapon)\b/i;
+    if (commonSpeciesOrObjects.test(target)) {
+      return false;
+    }
+    return true; // e.g. "is it the knight", "is it mario", "are you naruto", "is it bugs bunny"
+  }
+
+  if (/^(guess|my\s+guess\s+is|i\s+guess)\s+/i.test(norm)) {
+    return true;
+  }
+
+  return false;
+}
+
 async function askAIAboutSoloCharacter(char, userQ, history = []) {
-  const systemPrompt = `You are an expressive, lively game-show judge in a Solo "Guess Who" / 20-Questions character guessing game.
+  const categoryLabels = {
+    animation: 'Animation / Western Cartoon (Looney Tunes / Cartoon Network / Disney etc. - NOT a video game franchise, NOT anime)',
+    anime: 'Anime & Manga (Japanese Animation & Comics - NOT a western cartoon, NOT a video game franchise)',
+    games: 'Video Games (Console / PC / Arcade)',
+    movies: 'Live-Action Movies & Television (Real human actors - NOT an animated cartoon, NOT a video game)',
+    comics: 'Comic Books & Graphic Novels (Marvel / DC / etc.)',
+    literature: 'Literature & Books (Novels / Classics - NOT a video game or cartoon)',
+  };
+  const primaryMedium = categoryLabels[char.category] || char.category || 'Fictional Character';
+
+  const systemPrompt = `You are a strict, completely honest game-show judge in a Solo "Guess Who" / 20-Questions character guessing game.
 You know the secret character and their confirmed canon lore.
 The player is asking a question or trying to guess who the secret character is.
 
+GROUND TRUTH & ACCURACY RULES:
+1. PRIMARY MEDIUM ENFORCEMENT:
+   - Check the character's Primary Medium: "${primaryMedium}".
+   - If the Primary Medium is Animation / Western Cartoon (e.g. Looney Tunes, Tom & Jerry, Mickey Mouse):
+     - Questions like "from a game?", "is it a video game character?", "from a video game?", "in a game?" MUST BE ANSWERED WITH NO ("❌ Nope, definitely not from a video game!").
+     - Animated cartoon characters are from cartoon films/shows, NOT video games!
+     - Do NOT treat cameo appearances, spin-off mobile apps, or figurative idioms (like "beating at their own game") as being "from a game"!
+   - If the character is an animal, person, or cartoon creature:
+     - Questions like "is he a chess piece?", "is it from chess?", "is it a knight (chess)?" MUST BE ANSWERED WITH AN EMPHATIC NO ("❌ Definitely not!", "🙅 No, not at all!").
+2. OBJECTIVITY (NEVER BE SYCOPHANTIC):
+   - Do NOT agree with false premises or lead the player on!
+   - If the player asks if an animated cartoon turtle/character is a chess piece, a knight, or from a creative game: ANSWER NO!
+   - Be completely honest to the confirmed canon lore.
+3. CHARACTER GUESS INTEGRITY:
+   - The player is ONLY correct if they guess the actual character name (${char.name}).
+   - Any other character guess (e.g. guessing "the knight" or "mario" when the character is ${char.name}) MUST be answered with "❌ Nope, not that character!" with "guessed": false.
+
 EVALUATION RULES:
 1. CHARACTER IDENTITY GUESS:
-   - If the player is directly guessing who the character is and gets it RIGHT:
+   - If the player is directly guessing who the character is and gets it RIGHT (${char.name}):
      "guessed": true, "verdict": "GUESSED", "heat": "hot", "answer": "🎉 Yes! You guessed it — the character is ${char.name}!"
    - If the player is guessing a specific wrong character name:
      "guessed": false, "verdict": "NO", "heat": "cold", "answer": "❌ Nope, not that character!"
@@ -2014,13 +2113,14 @@ STRICT CONSTRAINTS:
 }`;
 
   const historyText = Array.isArray(history) && history.length > 0
-    ? history.slice(-10).map((h, i) => `${i + 1}. Q: "${h.question}" -> A: "${h.answer}" (${h.verdict})`).join('\n')
+    ? history.slice(-8).map((h, i) => `${i + 1}. Q: "${h.question}" -> A: "${h.answer}" (${h.verdict})`).join('\n')
     : '(No previous questions asked yet)';
 
   const userPrompt = `=== SECRET CHARACTER DOSSIER ===
 Name: ${char.name}
-Series/Origin: ${char.series}
-Verified Info:
+Franchise/Series: ${char.series}
+Primary Medium: ${primaryMedium}
+Verified Canon Lore:
 ${char.description || 'No extra description.'}
 
 === PREVIOUS CONVERSATION IN THIS GAME ===
@@ -2029,7 +2129,7 @@ ${historyText}
 === CURRENT PLAYER QUESTION / GUESS ===
 "${userQ}"
 
-Use the dossier and previous conversation context (e.g., if the user references previous questions like "are they still alive" or "does he also...") to evaluate this question accurately.
+Evaluate this question strictly and accurately against the Secret Character Dossier above.
 Respond with JSON:`;
 
   // If Replace All Ollama with Gemini is active, use Gemini API directly
@@ -2155,21 +2255,12 @@ app.post('/api/solo/ask', async (req, res) => {
   const session = soloSessions.get(sessionId);
   const char = session.character;
 
-  // 1. Direct deterministic name guess check
-  const cleanName = char.name.replace(/\s*\([^)]+\)$/, '').trim().toLowerCase();
-  const nameParts = cleanName.split(/\s+/).filter((p) => p.length >= 3 && !/^(the|and|mr|mrs|dr|sir)$/i.test(p));
-  const qNorm = userQ.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-
-  const isDirectFullMatch = qNorm.includes(cleanName.replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim());
-  const isDistinctFirstOrLastMatch =
-    nameParts.length > 0 &&
-    nameParts.some((part) => part.length >= 4 && new RegExp(`\\b${part}\\b`, 'i').test(qNorm)) &&
-    (/\b(is it|are you|guess|character)\b/i.test(qNorm) || qNorm.split(' ').length <= 4);
-
-  if (isDirectFullMatch || isDistinctFirstOrLastMatch) {
+  // 1. Direct deterministic check: Did the user guess THIS character?
+  if (verifyGuessMatchesCharacter(userQ, char)) {
     const updatedUser = recordSoloGameResult(sessionId, true, req);
     const winMsg = `🎉 Yes! You guessed it — the character is ${char.name}!`;
     session.history.push({ question: userQ, answer: winMsg, heat: 'hot', verdict: 'GUESSED' });
+    if (session.username) saveStore(appStore);
     return res.json({
       answer: winMsg,
       verdict: 'GUESSED',
@@ -2184,12 +2275,36 @@ app.post('/api/solo/ask', async (req, res) => {
     });
   }
 
+  // 2. Did the user make an explicit guess for ANOTHER character (e.g. "is it the knight?", "is it Mario?")?
+  // We NEVER allow a wrong character guess to accidentally trigger a win or get misinterpreted!
+  if (isExplicitCharacterGuess(userQ)) {
+    const wrongAnswer = '❌ Nope, not that character!';
+    session.history.push({ question: userQ, answer: wrongAnswer, heat: 'cold', verdict: 'NO' });
+    if (session.username) saveStore(appStore);
+    return res.json({
+      answer: wrongAnswer,
+      verdict: 'NO',
+      heat: 'cold',
+      guessed: false,
+    });
+  }
+
   try {
     const parsed = await askAIAboutSoloCharacter(char, userQ, session.history);
-    const guessed = Boolean(parsed.guessed || parsed.verdict === 'GUESSED');
+    let guessed = Boolean(parsed.guessed || parsed.verdict === 'GUESSED');
     let verdict = (parsed.verdict || '').toUpperCase();
     let answer = (parsed.answer || '').trim();
     let heat = (parsed.heat || 'neutral').toLowerCase().trim();
+
+    // HARD SECURITY GATE: The AI can ONLY trigger a win if the question genuinely matches the character!
+    if (guessed) {
+      if (!verifyGuessMatchesCharacter(userQ, char)) {
+        guessed = false;
+        verdict = 'NO';
+        heat = 'cold';
+        answer = '❌ Nope, not that character!';
+      }
+    }
 
     if (verdict === 'INVALID' || parsed.invalid) {
       return res.json({
@@ -2205,6 +2320,7 @@ app.post('/api/solo/ask', async (req, res) => {
       const updatedUser = recordSoloGameResult(sessionId, true, req);
       const winMsg = `🎉 Yes! You guessed it — the character is ${char.name}!`;
       session.history.push({ question: userQ, answer: winMsg, heat: 'hot', verdict: 'GUESSED' });
+      if (session.username) saveStore(appStore);
       return res.json({
         answer: winMsg,
         verdict: 'GUESSED',
