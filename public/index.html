@@ -856,7 +856,7 @@
       </div>
 
       <!-- Gamemode & Difficulty Selectors -->
-      <div id="solo-filters-wrap" style="margin: 8px 0 14px 0; display:flex; gap:12px; flex-wrap:wrap;">
+      <div id="solo-filters-wrap" style="margin: 8px 0 14px 0; display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;">
         <div class="select-wrap">
           <label for="solo-cat-select" class="select-label">Gamemode</label>
           <select id="solo-cat-select" class="styled-select">
@@ -867,13 +867,23 @@
             <option value="games">Games Only</option>
           </select>
         </div>
-        <div class="select-wrap">
+        <div class="select-wrap" id="solo-diff-wrap">
           <label for="solo-diff-select" class="select-label">Difficulty</label>
           <select id="solo-diff-select" class="styled-select">
-            <option value="easy">Easy</option>
-            <option value="medium">Medium</option>
-            <option value="hard">Hard</option>
+            <option value="easy">Easy (0 - 30)</option>
+            <option value="medium">Medium (31 - 60)</option>
+            <option value="hard">Hard (61 - 100)</option>
           </select>
+        </div>
+        <!-- For authenticated users: difficulty is locked and dynamically matched to rating ±10 -->
+        <div id="solo-rating-wrap" class="hidden" style="display:none; padding:6px 12px; background:#181926; border:1px solid #4f46e5; border-radius:6px;">
+          <div style="font-size:0.72rem; color:#a5b4fc; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">
+            Skill Matchmaking
+          </div>
+          <div style="font-size:0.92rem; font-weight:700; color:#fff; display:flex; align-items:center; gap:6px; margin-top:2px;">
+            <span>Rating: <strong id="solo-rating-display" style="color:#818cf8;">50</strong>/100</span>
+            <span id="solo-rating-range" style="font-size:0.75rem; color:#94a3b8; font-weight:normal;">(Target: 40 - 60)</span>
+          </div>
         </div>
       </div>
 
@@ -909,7 +919,7 @@
     </div>
 
     <!-- ==================================================================== -->
-    <!-- SOLO LEADERBOARD SECTION (Top 10 players by W/L ratio)                -->
+    <!-- SOLO LEADERBOARD SECTION (All players ranked by Score 0 - 100)        -->
     <!-- ==================================================================== -->
     <div class="card" id="solo-leaderboard-card" style="margin-top:16px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
@@ -918,7 +928,7 @@
             🏆 Solo Leaderboard (Top 10)
           </h3>
           <div style="font-size:0.75rem; color:#888; margin-top:2px;">
-            Ranked by W/L Ratio • 5+ completed games required to qualify
+            Ranked by Skill Score (0 - 100) • All players ranked
           </div>
         </div>
         <div style="display:flex; align-items:center; gap:8px;">
@@ -939,6 +949,7 @@
             <tr>
               <th style="width:44px; text-align:center;">#</th>
               <th>Player</th>
+              <th style="text-align:center;">Score</th>
               <th style="text-align:center;">W - L</th>
               <th style="text-align:center;">Win %</th>
               <th class="lb-hide-mobile" style="text-align:center;">Avg Guesses</th>
@@ -951,7 +962,7 @@
       </div>
 
       <div id="lb-empty" class="status hidden" style="text-align:center; padding:18px 0; color:#888;">
-        No players have completed 5 games yet. Be the first to rank on the leaderboard!
+        No players registered yet. Connect to join the leaderboard!
       </div>
 
       <!-- Pinned Current User Placement -->
@@ -996,6 +1007,14 @@
       <img id="profile-modal-img" class="profile-modal-img" src="" alt="Player character" />
 
       <div class="profile-stats-grid">
+        <div class="profile-stat-item" style="grid-column: span 2; background: #161829; border: 1px solid #6366f1; padding: 10px 14px;">
+          <div class="profile-stat-label" style="color: #a5b4fc; font-weight: 700; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px;">
+            Player Skill Rating (0 - 100)
+          </div>
+          <div id="profile-stat-score" class="profile-stat-val" style="color: #818cf8; font-size: 1.45rem; font-weight: 800; margin-top: 2px;">
+            50 <span style="font-size: 0.85rem; color: #94a3b8; font-weight: 500;">/ 100</span>
+          </div>
+        </div>
         <div class="profile-stat-item">
           <div class="profile-stat-label">W / L Record</div>
           <div id="profile-stat-wl" class="profile-stat-val">0 - 0</div>
@@ -1717,10 +1736,61 @@
     const soloRevealSeries = document.getElementById('solo-reveal-series');
     const soloGiveupBtn = document.getElementById('solo-giveup-btn');
     const soloNewBtn = document.getElementById('solo-new-btn');
-    const soloFiltersWrap = document.getElementById('solo-filters-wrap');
+    let soloSessionId = null;
+    let soloQuestionCount = 0;
+    let soloGameOver = true;
 
+    const soloFiltersWrap = document.getElementById('solo-filters-wrap');
     const soloCatSelect = document.getElementById('solo-cat-select');
     const soloDiffSelect = document.getElementById('solo-diff-select');
+    const soloDiffWrap = document.getElementById('solo-diff-wrap');
+    const soloRatingWrap = document.getElementById('solo-rating-wrap');
+    const soloRatingDisplay = document.getElementById('solo-rating-display');
+    const soloRatingRange = document.getElementById('solo-rating-range');
+
+    function updateSoloMatchmakingUI() {
+      if (currentAuthUser) {
+        if (soloDiffWrap) soloDiffWrap.style.display = 'none';
+        if (soloRatingWrap) {
+          soloRatingWrap.style.display = 'block';
+          soloRatingWrap.classList.remove('hidden');
+        }
+        const score = typeof currentAuthUser.score === 'number' ? currentAuthUser.score : 50;
+        if (soloRatingDisplay) soloRatingDisplay.textContent = score;
+        if (soloRatingRange) {
+          soloRatingRange.textContent = `(Target: ${Math.max(0, score - 10)} - ${Math.min(100, score + 10)})`;
+        }
+      } else {
+        if (soloDiffWrap) {
+          soloDiffWrap.style.display = 'block';
+          soloDiffWrap.classList.remove('hidden');
+        }
+        if (soloRatingWrap) {
+          soloRatingWrap.style.display = 'none';
+          soloRatingWrap.classList.add('hidden');
+        }
+      }
+    }
+
+    function triggerAbandonIfActive() {
+      if (soloSessionId && soloQuestionCount > 0 && !soloGameOver) {
+        soloGameOver = true;
+        const payload = JSON.stringify({ sessionId: soloSessionId });
+        if (navigator.sendBeacon) {
+          navigator.sendBeacon('/api/solo/abandon', payload);
+        } else {
+          fetch('/api/solo/abandon', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: payload,
+            keepalive: true,
+          }).catch(() => {});
+        }
+      }
+    }
+
+    window.addEventListener('beforeunload', triggerAbandonIfActive);
+    window.addEventListener('pagehide', triggerAbandonIfActive);
 
     if (soloCatSelect) {
       soloCatSelect.addEventListener('change', () => {
@@ -1774,8 +1844,10 @@
     }
 
     async function startSoloGame() {
+      triggerAbandonIfActive();
       soloSessionId = null;
       soloQuestionCount = 0;
+      soloGameOver = false;
       soloQCount.textContent = 'Questions: 0';
       soloQaLog.innerHTML = '';
       soloQaLog.classList.add('hidden');
@@ -1957,6 +2029,7 @@
         soloInput.value = '';
 
         if (data.guessed && data.character) {
+          soloGameOver = true;
           soloStatus.textContent = `🎉 You got it in ${soloQuestionCount} question(s)!`;
           showSoloCharacterReveal(data.character, '🎉 You Guessed It!', '#4ade80');
           checkAuthStatus();
@@ -2021,6 +2094,7 @@
 
     soloGiveupBtn.addEventListener('click', async () => {
       if (!soloSessionId) return;
+      soloGameOver = true;
       try {
         const res = await fetch('/api/solo/reveal', {
           method: 'POST',
@@ -2029,19 +2103,20 @@
         });
         const data = await res.json();
         if (data.character) {
-    soloStatus.textContent = 'Character revealed!';
-    showSoloCharacterReveal(data.character, 'Secret Character Revealed', '#facc15');
-    if (soloQuestionCount > 0) {
-      soloShareBtn.style.display = 'inline-flex';
-    }
-    checkAuthStatus();
-  }
+          soloStatus.textContent = 'Character revealed!';
+          showSoloCharacterReveal(data.character, 'Secret Character Revealed', '#facc15');
+          if (soloQuestionCount > 0) {
+            soloShareBtn.style.display = 'inline-flex';
+          }
+          checkAuthStatus();
+        }
       } catch (err) {
         soloStatus.textContent = 'Could not reveal character.';
       }
     });
 
     soloNewBtn.addEventListener('click', () => {
+      triggerAbandonIfActive();
       window.history.replaceState(null, '', window.location.pathname);
       sharedGameBanner.classList.add('hidden');
       if (soloFiltersWrap) soloFiltersWrap.classList.remove('hidden');
@@ -2235,6 +2310,7 @@
       } catch (err) {
         console.warn('[Auth Check Error]', err);
       }
+      updateSoloMatchmakingUI();
       loadLeaderboard();
     }
 
@@ -2277,6 +2353,7 @@
                   </div>
                 </div>
               </td>
+              <td style="text-align:center; font-weight:800; color:#818cf8; font-size:1.02rem;">${item.score ?? 50}</td>
               <td style="text-align:center; font-weight:600;">${item.wins} - ${item.losses}</td>
               <td style="text-align:center; font-weight:700; color:#4ade80;">${item.winRate}%</td>
               <td class="lb-hide-mobile" style="text-align:center; color:#ccc;">${item.avgGuesses > 0 ? item.avgGuesses : '-'}</td>
@@ -2298,11 +2375,12 @@
           }
         }
 
-        // Pinned user placement box
+        // Pinned user placement box (always shows current user, even if 0 games played)
         const myPlacement = data.currentUserEntry || currentAuthUser;
         if (myPlacement && myPlacement.username) {
           lbMyPlacement.classList.remove('hidden');
           const isRanked = Boolean(myPlacement.rank);
+          const userScore = typeof myPlacement.score === 'number' ? myPlacement.score : 50;
           const rounds = Number(myPlacement.rounds) || 0;
           const wins = Number(myPlacement.wins) || 0;
           const losses = Number(myPlacement.losses) || 0;
@@ -2312,9 +2390,7 @@
           const charImg = (char && char.image) ? char.image : defaultPfpSvg;
           const charSub = (char && char.name) ? `<span class="lb-char-name">as "${escapeHtml(char.name)}"</span>` : '';
 
-          const statusText = isRanked
-            ? `Rank: <strong>#${myPlacement.rank}</strong> of ${data.totalRanked} &bull; Record: <strong>${wins}W - ${losses}L</strong> (${winRate}%) &bull; Avg Guesses: <strong>${avgG}</strong>`
-            : `Rank: <strong>Unranked</strong> (${rounds}/5 games played &bull; <strong>${Math.max(0, 5 - rounds)}</strong> more needed to qualify!)`;
+          const statusText = `Rank: <strong>#${myPlacement.rank || 1}</strong> of ${data.totalRanked || 1} &bull; Rating: <strong style="color:#818cf8;">${userScore}/100</strong> &bull; Record: <strong>${wins}W - ${losses}L</strong> (${winRate}%) &bull; Avg Guesses: <strong>${avgG}</strong>`;
 
           lbMyPlacement.innerHTML = `
             <div style="display:flex; align-items:center; gap:10px; cursor:pointer;" id="lb-my-profile-trigger" title="Click your name to view profile & change character">
@@ -2381,12 +2457,18 @@
         }
         profileModalImg.onerror = () => { profileModalImg.src = placeholderImg; };
 
+        const userScore = typeof u.score === 'number' ? u.score : 50;
+        const scoreEl = document.getElementById('profile-stat-score');
+        if (scoreEl) {
+          scoreEl.innerHTML = `${userScore} <span style="font-size:0.85rem; color:#94a3b8; font-weight:500;">/ 100</span>`;
+        }
+
         profileStatWl.textContent = `${u.wins} - ${u.losses}`;
         profileStatWinrate.textContent = `${u.winRate}%`;
         profileStatRounds.textContent = `${u.rounds}`;
         profileStatGuesses.textContent = u.avgGuesses > 0 ? `${u.avgGuesses}` : '-';
         profileStatBest.textContent = u.bestWin ? `${u.bestWin} questions` : '-';
-        profileStatRank.textContent = u.rank ? `#${u.rank}` : `Unranked (${u.rounds}/5)`;
+        profileStatRank.textContent = u.rank ? `#${u.rank}` : `Unranked`;
 
         const isSelf = currentAuthUser && currentAuthUser.username.toLowerCase() === u.username.toLowerCase();
         if (isSelf) {

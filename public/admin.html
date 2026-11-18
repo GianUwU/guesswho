@@ -203,7 +203,41 @@
     <div id="replace-status" class="status"></div>
   </div>
 
-  <!-- 3. Requested Characters List -->
+  <!-- 3. Character Difficulty Score Lookup (Admin Only) -->
+  <div class="card" style="border-color: rgba(59, 130, 246, 0.45); background: #131722;">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2 style="margin:0; display:flex; align-items:center; gap:8px; color:#93c5fd;">
+        🎯 Character Difficulty Score Lookup
+      </h2>
+      <span style="font-size:0.75rem; background:#1e293b; color:#94a3b8; padding:3px 8px; border-radius:4px; border:1px solid #334155;">
+        7,700+ Scored Characters
+      </span>
+    </div>
+    <div style="font-size:0.86rem; color:#94a3b8; margin-top:6px; line-height:1.45;">
+      Look up any character to see their exact guessing difficulty rating from <strong>0</strong> (world-famous icon) to <strong>100</strong> (obscure / niche).
+    </div>
+
+    <form id="char-diff-form" style="display:flex; gap:8px; margin-top:14px;" onsubmit="return false;">
+      <input
+        type="text"
+        id="char-diff-input"
+        placeholder="Type character name (e.g. Mario, Batman, Maomao, Sifo-Dyas)..."
+        style="flex:1; padding:10px 12px; background:#0b0f19; border:1px solid #334155; border-radius:6px; color:#fff; font-size:0.92rem; outline:none;"
+      />
+      <button
+        type="submit"
+        id="char-diff-btn"
+        style="padding:10px 18px; background:#2563eb; color:#fff; border:none; border-radius:6px; font-weight:600; cursor:pointer; font-size:0.9rem;"
+      >
+        Inspect
+      </button>
+    </form>
+
+    <div id="char-diff-status" style="font-size:0.82rem; color:#64748b; margin-top:8px;"></div>
+    <div id="char-diff-results" style="margin-top:12px; display:flex; flex-direction:column; gap:8px;"></div>
+  </div>
+
+  <!-- 4. Requested Characters List -->
   <div class="card">
     <div style="display:flex; justify-content:space-between; align-items:center;">
       <h2 style="margin:0;">Requested Characters</h2>
@@ -466,6 +500,110 @@
       const res = await fetch('/api/admin/reports', { method: 'DELETE' });
       const data = await res.json();
       renderReports(data.reportedTips || []);
+    });
+
+    // Character Difficulty Lookup Handlers
+    const charDiffInput = document.getElementById('char-diff-input');
+    const charDiffForm = document.getElementById('char-diff-form');
+    const charDiffBtn = document.getElementById('char-diff-btn');
+    const charDiffStatus = document.getElementById('char-diff-status');
+    const charDiffResults = document.getElementById('char-diff-results');
+
+    let diffLookupTimeout = null;
+
+    function getDiffBadge(score) {
+      if (score <= 30) {
+        return { label: 'Easy (0 - 30)', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.15)', desc: 'Worldwide Icon / Widely Recognized' };
+      } else if (score <= 60) {
+        return { label: 'Medium (31 - 60)', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.15)', desc: 'Mainstream / Well Known' };
+      } else {
+        return { label: 'Hard (61 - 100)', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.15)', desc: 'Obscure / Deep Lore / Niche' };
+      }
+    }
+
+    function renderDiffCard(c) {
+      const score = typeof c.difficulty === 'number' ? c.difficulty : 50;
+      const badge = getDiffBadge(score);
+
+      const div = document.createElement('div');
+      div.style.cssText = 'background: #0d111a; border: 1px solid #1e293b; border-radius: 6px; padding: 12px 14px;';
+
+      div.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+          <div style="min-width:0;">
+            <div style="font-weight:700; font-size:1.02rem; color:#fff; display:flex; align-items:center; gap:6px;">
+              ${escapeHtml(c.name)}
+              ${c.exact ? '<span style="font-size:0.68rem; background:#1e3a8a; color:#bfdbfe; padding:2px 6px; border-radius:3px; text-transform:uppercase;">Exact</span>' : ''}
+            </div>
+            <div style="font-size:0.8rem; color:#94a3b8; margin-top:2px;">
+              ${escapeHtml(c.series || 'Pop Culture')} • <span style="text-transform:capitalize;">${escapeHtml(c.category || 'all')}</span>
+            </div>
+          </div>
+          <div style="text-align:right; flex-shrink:0;">
+            <div style="font-size:1.25rem; font-weight:800; color:${badge.color};">
+              ${score} <span style="font-size:0.75rem; color:#64748b; font-weight:500;">/ 100</span>
+            </div>
+            <span style="display:inline-block; font-size:0.72rem; font-weight:600; padding:2px 6px; border-radius:4px; background:${badge.bg}; color:${badge.color}; border:1px solid ${badge.color}44;">
+              ${badge.label}
+            </span>
+          </div>
+        </div>
+        <div style="margin-top:10px; background:#1e293b; height:6px; border-radius:3px; overflow:hidden;">
+          <div style="width:${Math.max(2, score)}%; height:100%; background:${badge.color}; transition: width 0.3s ease;"></div>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:0.72rem; color:#64748b; margin-top:4px;">
+          <span>${badge.desc}</span>
+          ${c.note ? `<span style="color:#f59e0b;">${escapeHtml(c.note)}</span>` : ''}
+        </div>
+      `;
+      return div;
+    }
+
+    async function executeDiffLookup() {
+      const q = (charDiffInput.value || '').trim();
+      if (!q) {
+        charDiffStatus.textContent = '';
+        charDiffResults.innerHTML = '';
+        return;
+      }
+      charDiffStatus.textContent = `Searching for "${q}"...`;
+      try {
+        const res = await fetch(`/api/admin/character-difficulty?q=${encodeURIComponent(q)}`);
+        if (!res.ok) {
+          charDiffStatus.textContent = 'Error querying difficulty scores.';
+          return;
+        }
+        const data = await res.json();
+        charDiffResults.innerHTML = '';
+
+        const results = data.results || [];
+        if (results.length === 0 && data.externalResult) {
+          results.push(data.externalResult);
+        }
+
+        if (results.length === 0) {
+          charDiffStatus.textContent = `No characters matching "${q}" found.`;
+          return;
+        }
+
+        charDiffStatus.textContent = `Found ${results.length} matching character${results.length > 1 ? 's' : ''}:`;
+        results.forEach((c) => {
+          charDiffResults.appendChild(renderDiffCard(c));
+        });
+      } catch (err) {
+        charDiffStatus.textContent = 'Failed to lookup character difficulty.';
+      }
+    }
+
+    charDiffForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      clearTimeout(diffLookupTimeout);
+      executeDiffLookup();
+    });
+
+    charDiffInput.addEventListener('input', () => {
+      clearTimeout(diffLookupTimeout);
+      diffLookupTimeout = setTimeout(executeDiffLookup, 280);
     });
 
     loadAdminState();

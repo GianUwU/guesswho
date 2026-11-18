@@ -106,6 +106,7 @@ function ensureUserRecord(username) {
     appStore.users[cleanName] = {
       username: cleanName,
       character: null,
+      score: 50, // Skill rating (0 easiest to 100 hardest; starts at 50)
       wins: 0,
       losses: 0,
       rounds: 0,
@@ -116,6 +117,9 @@ function ensureUserRecord(username) {
       lastActive: Date.now(),
     };
   } else {
+    if (typeof appStore.users[cleanName].score !== 'number') {
+      appStore.users[cleanName].score = 50;
+    }
     appStore.users[cleanName].lastActive = Date.now();
   }
   return appStore.users[cleanName];
@@ -165,10 +169,14 @@ function getUserStats(u, rank = null) {
   const avgGuesses = wins > 0
     ? Number((Number(u.winningGuesses || 0) / wins).toFixed(1))
     : (rounds > 0 ? Number((Number(u.totalGuesses || 0) / rounds).toFixed(1)) : 0);
+  const score = typeof u.score === 'number'
+    ? Math.max(0, Math.min(100, Math.round(u.score)))
+    : 50;
 
   return {
     username: u.username,
     character: u.character || null,
+    score,
     wins,
     losses,
     rounds,
@@ -177,8 +185,8 @@ function getUserStats(u, rank = null) {
     bestWin: u.bestWinGuesses || null,
     totalGuesses: Number(u.totalGuesses) || 0,
     rank: rank !== null ? rank : null,
-    qualified: rounds >= 5,
-    roundsNeeded: Math.max(0, 5 - rounds),
+    qualified: true,
+    roundsNeeded: 0,
   };
 }
 
@@ -186,32 +194,31 @@ function getUserStats(u, rank = null) {
 function getLeaderboardData(currentUsername = null) {
   const users = Object.values(appStore.users || {});
 
-  // Players with 5 or more rounds qualify for ranking
-  const qualified = users
-    .map((u) => getUserStats(u))
-    .filter((u) => u.qualified);
+  // All users are ranked by score (0-100) desc, then winRate desc, wins desc, rounds desc, avgGuesses asc
+  const rankedList = users.map((u) => getUserStats(u));
 
-  // Ranked by W/L ratio (winRate desc), then wins desc, then avgGuesses asc, then rounds desc
-  qualified.sort((a, b) => {
+  rankedList.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
     if (b.winRate !== a.winRate) return b.winRate - a.winRate;
     if (b.wins !== a.wins) return b.wins - a.wins;
-    if (a.avgGuesses !== b.avgGuesses) return a.avgGuesses - b.avgGuesses;
-    return b.rounds - a.rounds;
+    if (b.rounds !== a.rounds) return b.rounds - a.rounds;
+    return a.avgGuesses - b.avgGuesses;
   });
 
-  qualified.forEach((item, idx) => {
+  rankedList.forEach((item, idx) => {
     item.rank = idx + 1;
   });
 
-  const top10 = qualified.slice(0, 10);
+  const top10 = rankedList.slice(0, 10);
 
   let currentUserEntry = null;
   if (currentUsername) {
-    const foundRanked = qualified.find((u) => u.username.toLowerCase() === currentUsername.toLowerCase());
+    const foundRanked = rankedList.find((u) => u.username.toLowerCase() === currentUsername.toLowerCase());
     if (foundRanked) {
       currentUserEntry = foundRanked;
     } else if (appStore.users?.[currentUsername]) {
-      currentUserEntry = getUserStats(appStore.users[currentUsername], null);
+      const u = ensureUserRecord(currentUsername);
+      currentUserEntry = getUserStats(u, rankedList.length + 1);
     }
   }
 
@@ -229,7 +236,7 @@ function getLeaderboardData(currentUsername = null) {
   return {
     top10,
     currentUserEntry,
-    totalRanked: qualified.length,
+    totalRanked: rankedList.length,
     claimedCharacters,
   };
 }
@@ -1150,39 +1157,75 @@ async function fetchTrulyRandomCharacterFromDatabases(category = 'all') {
   return null;
 }
 
-// Helper to pick a random character filtered by category and difficulty/obscurity
-async function pickRandomCharacterByMode(category = 'all', difficulty = 'easy') {
-  // For the Hard difficulty, literally pull a completely random character from live databases!
-  if (difficulty === 'hard') {
-    const dbChar = await fetchTrulyRandomCharacterFromDatabases(category);
-    if (dbChar) {
-      return dbChar;
-    }
-    // Fall back to curated hard pool if network/API drops
-  }
-
+// Helper to pick a random character filtered by category and difficulty/obscurity (or user skill rating ±10)
+async function pickRandomCharacterByMode(category = 'all', difficulty = 'easy', userScore = null) {
   let pool = CHARACTER_DATABASE;
 
+  // Filter category if specified
   if (category && category !== 'all') {
     const catPool = pool.filter((c) => c.category === category);
-    if (catPool.length > 0) pool = catPool;
+    if (catPool.length >= 10) pool = catPool;
   }
 
-  if (difficulty && difficulty !== 'any') {
-    const diffPool = pool.filter((c) => c.difficulty === difficulty);
-    if (diffPool.length > 0) pool = diffPool;
+  let candidates = [];
+
+  // If user is authenticated with a score rating, strictly match within ±10 points (expanding dynamically if needed)
+  if (userScore !== null && typeof userScore === 'number') {
+    const targetScore = Math.max(0, Math.min(100, Math.round(userScore)));
+    let range = 10;
+    while (range <= 40) {
+      const minD = Math.max(0, targetScore - range);
+      const maxD = Math.min(100, targetScore + range);
+      candidates = pool.filter((c) => typeof c.difficulty === 'number' && c.difficulty >= minD && c.difficulty <= maxD);
+      if (candidates.length >= 12) break;
+      range += 5;
+    }
+  } else {
+    // Unauthenticated players: Easy (0-30), Medium (31-60), Hard (61-100)
+    let minD = 0;
+    let maxD = 100;
+    if (difficulty === 'easy') {
+      minD = 0;
+      maxD = 30;
+    } else if (difficulty === 'medium') {
+      minD = 31;
+      maxD = 60;
+    } else if (difficulty === 'hard') {
+      minD = 61;
+      maxD = 100;
+    }
+    candidates = pool.filter((c) => typeof c.difficulty === 'number' && c.difficulty >= minD && c.difficulty <= maxD);
   }
 
-  const shuffled = pool.slice().sort(() => Math.random() - 0.5);
+  if (!candidates || candidates.length === 0) {
+    candidates = pool;
+  }
 
-  for (const item of shuffled.slice(0, 8)) {
+  const shuffled = candidates.slice().sort(() => Math.random() - 0.5);
+
+  for (const item of shuffled.slice(0, 10)) {
     const results = await performHybridSearch(item.name);
     if (results && results.length > 0) {
       const exactMatch = results.find(
         (r) => r.name.replace(/\s*\([^)]+\)$/, '').trim().toLowerCase() === item.name.toLowerCase()
       );
-      return exactMatch || results[0];
+      const chosen = exactMatch || results[0];
+      chosen.difficulty = typeof item.difficulty === 'number' ? item.difficulty : 50;
+      return chosen;
     }
+  }
+
+  // Fallback if network search failed: return random candidate directly
+  if (shuffled.length > 0) {
+    const fallback = shuffled[0];
+    return {
+      name: fallback.name,
+      series: fallback.series || 'Pop Culture',
+      category: fallback.category || 'all',
+      difficulty: typeof fallback.difficulty === 'number' ? fallback.difficulty : 50,
+      description: `${fallback.name} from ${fallback.series}`,
+      image: null,
+    };
   }
 
   return pickMainstreamRandomCharacterFallback();
@@ -1462,6 +1505,63 @@ app.delete('/api/admin/reports', (req, res) => {
   res.json({ ok: true, reportedTips: [] });
 });
 
+// Admin-only Character Difficulty Score Lookup
+app.get('/api/admin/character-difficulty', async (req, res) => {
+  const query = (req.query.q || '').trim();
+  if (!query) {
+    return res.json({ query: '', results: [] });
+  }
+
+  const qLower = query.toLowerCase();
+  const matches = [];
+
+  for (const c of CHARACTER_DATABASE) {
+    const cLower = c.name.toLowerCase();
+    if (cLower === qLower) {
+      matches.unshift({
+        name: c.name,
+        series: c.series,
+        category: c.category,
+        difficulty: c.difficulty,
+        exact: true,
+      });
+    } else if (cLower.includes(qLower)) {
+      matches.push({
+        name: c.name,
+        series: c.series,
+        category: c.category,
+        difficulty: c.difficulty,
+        exact: false,
+      });
+    }
+    if (matches.length >= 35) break;
+  }
+
+  let externalResult = null;
+  if (matches.length === 0) {
+    try {
+      const searchRes = await performHybridSearch(query);
+      if (searchRes && searchRes.length > 0) {
+        const top = searchRes[0];
+        externalResult = {
+          name: top.name,
+          series: top.series || 'Pop Culture',
+          category: top.category || 'all',
+          difficulty: 50,
+          note: 'Estimated score (not in static 7,700+ database)',
+        };
+      }
+    } catch (err) {}
+  }
+
+  res.json({
+    query,
+    count: matches.length,
+    results: matches,
+    externalResult,
+  });
+});
+
 // ============================================================================
 // SOLO MODE ENDPOINTS (Site picks a random character; user asks Yes/No questions)
 // ============================================================================
@@ -1540,14 +1640,23 @@ function recordSoloGameResult(sessionId, isWin, req) {
   user.rounds = (Number(user.rounds) || 0) + 1;
   user.totalGuesses = (Number(user.totalGuesses) || 0) + questionCount;
 
+  const currentScore = typeof user.score === 'number' ? user.score : 50;
+  const charDiff = typeof session.characterDifficulty === 'number' ? session.characterDifficulty : 50;
+
   if (isWin) {
     user.wins = (Number(user.wins) || 0) + 1;
     user.winningGuesses = (Number(user.winningGuesses) || 0) + questionCount;
     if (user.bestWinGuesses === null || questionCount < user.bestWinGuesses) {
       user.bestWinGuesses = questionCount;
     }
+    // Earn points: +6 base, +0-3 difficulty challenge bonus, capped at 100
+    const diffBonus = Math.max(0, Math.min(3, Math.round((charDiff - currentScore) / 15)));
+    const gain = 6 + diffBonus;
+    user.score = Math.min(100, currentScore + gain);
   } else {
+    // Give up / loss: lose 6 points, floor 0
     user.losses = (Number(user.losses) || 0) + 1;
+    user.score = Math.max(0, currentScore - 6);
   }
   user.lastActive = Date.now();
   saveStore(appStore);
@@ -1558,19 +1667,39 @@ function recordSoloGameResult(sessionId, isWin, req) {
 app.post('/api/solo/start', async (req, res) => {
   try {
     const { category = 'all', difficulty = 'easy' } = req.body || {};
-    const baseChar = await pickRandomCharacterByMode(category, difficulty);
+    const currentUser = getAuthenticatedUser(req);
+
+    // If an authenticated player had an unfinished active game with questions, count as an abandon penalty
+    if (currentUser) {
+      for (const [id, sess] of soloSessions.entries()) {
+        if (sess.username === currentUser.username && !sess.recorded && !sess.abandoned && sess.history && sess.history.length > 0) {
+          sess.abandoned = true;
+          sess.recorded = true;
+          const currScore = typeof currentUser.score === 'number' ? currentUser.score : 50;
+          currentUser.score = Math.max(0, currScore - 5);
+          currentUser.losses = (Number(currentUser.losses) || 0) + 1;
+          currentUser.rounds = (Number(currentUser.rounds) || 0) + 1;
+          currentUser.lastActive = Date.now();
+          saveStore(appStore);
+        }
+      }
+    }
+
+    const userScore = currentUser ? (typeof currentUser.score === 'number' ? currentUser.score : 50) : null;
+    const baseChar = await pickRandomCharacterByMode(category, difficulty, userScore);
     if (!baseChar) {
       return res.status(500).json({ error: 'Could not pick a random character for Solo Mode.' });
     }
     const dossier = await buildDeepCharacterDossier(baseChar);
     const sessionId = crypto.randomUUID();
-    const currentUser = getAuthenticatedUser(req);
 
     soloSessions.set(sessionId, {
       createdAt: Date.now(),
       category,
       difficulty,
+      characterDifficulty: typeof baseChar.difficulty === 'number' ? baseChar.difficulty : 50,
       username: currentUser ? currentUser.username : null,
+      userScoreAtStart: userScore,
       character: {
         name: dossier.name || baseChar.name,
         series: dossier.series || baseChar.series,
@@ -1579,6 +1708,7 @@ app.post('/api/solo/start', async (req, res) => {
       },
       history: [],
       recorded: false,
+      abandoned: false,
     });
 
     // Clean up old sessions (> 2 hours)
@@ -1596,6 +1726,46 @@ app.post('/api/solo/start', async (req, res) => {
     console.error('[Solo Start Error]', err);
     res.status(500).json({ error: 'Failed to start Solo Mode.' });
   }
+});
+
+// Abandon Solo Game Endpoint (triggered by page reload, close, or navigating away during active game)
+app.post('/api/solo/abandon', (req, res) => {
+  let sessionId = null;
+  if (typeof req.body === 'string') {
+    try {
+      sessionId = JSON.parse(req.body).sessionId;
+    } catch (e) {
+      sessionId = req.body.trim();
+    }
+  } else if (req.body && req.body.sessionId) {
+    sessionId = req.body.sessionId;
+  }
+
+  if (!sessionId || !soloSessions.has(sessionId)) {
+    return res.json({ ok: false, message: 'No active session' });
+  }
+
+  const session = soloSessions.get(sessionId);
+  if (session.recorded || session.abandoned) {
+    return res.json({ ok: false, message: 'Session already completed' });
+  }
+
+  // Only penalize if game was actually engaged in (at least 1 question asked)
+  session.abandoned = true;
+  session.recorded = true;
+
+  const user = getAuthenticatedUser(req) || (session.username ? ensureUserRecord(session.username) : null);
+  if (user && session.history && session.history.length > 0) {
+    const currScore = typeof user.score === 'number' ? user.score : 50;
+    user.score = Math.max(0, currScore - 5);
+    user.losses = (Number(user.losses) || 0) + 1;
+    user.rounds = (Number(user.rounds) || 0) + 1;
+    user.lastActive = Date.now();
+    saveStore(appStore);
+    return res.json({ ok: true, abandoned: true, score: user.score, message: 'Game abandoned. Penalty applied.' });
+  }
+
+  res.json({ ok: true, abandoned: true });
 });
 
 function isStandardDemographicQuestion(text) {
