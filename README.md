@@ -2,7 +2,7 @@
 
 ![Guess Who Preview](./guesswho_preview.png)
 
-An AI-powered pop-culture character guessing game featuring **2-Player Deep-Lore Similarity Mode** and **Solo 20-Questions Mode** against an intelligent AI judge.
+An AI-powered pop-culture character guessing game featuring **2-Player Similarity Mode**, **3+ Player Party Mode**, and **Solo 20-Questions Mode** against an intelligent AI judge.
 
 Live: **[https://guesswho.gian.ink](https://guesswho.gian.ink)**
 
@@ -21,7 +21,17 @@ Live: **[https://guesswho.gian.ink](https://guesswho.gian.ink)**
 - **Independent Reveal Wings**: Each player's identity card is independently hidden and revealable on the left and right wings.
 - **Tip Quality Reporting**: Players can flag weird, inaccurate, or low-quality AI clues for review.
 
-### 👤 2. Solo 20-Questions Mode
+### 🎉 2. 3+ Player Party Mode
+- **Unlimited Group Size ($3+$ Players)**: Players secretly input their characters one by one. Once at least 3 players are ready, the group can launch the game or keep adding more players.
+- **Quantified Commonality & Subset Matching**:
+  - The AI searches for universal commonalities across all characters (`"All of your characters..."`).
+  - If a single universal trait does not connect everyone, it intelligently identifies subset commonalities (`"Two of your characters wear white shirts"`, `"Three of your characters live underground"`, `"One of your characters is a wizard"`), producing up to $\lfloor N / 2 \rfloor$ clues.
+  - Clues remain strictly in-universe and never reveal player numbers or character names.
+- **Three Guessability Levels**: Obscure (Level 1), Regular (Level 2), and Obvious (Level 3).
+- **Group Fact-Checker**: Any player can query the AI about any player's character without spoilers.
+- **Party Reveal Grid**: Individual reveal cards for each player plus an all-at-once "Reveal All" toggle.
+
+### 👤 3. Solo 20-Questions Mode
 - **Category & Difficulty Selection**:
   - **Universes**: All Universes, Anime Only, Live Action Only, Western Animation Only, Gaming Only.
   - **Difficulties**:

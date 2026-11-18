@@ -419,6 +419,97 @@
       from { transform: translate(-50%, 20px); opacity: 0; }
       to { transform: translate(-50%, 0); opacity: 1; }
     }
+    /* Party Mode (3+ Players) Styles */
+    .party-roster {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 10px 0 14px 0;
+    }
+    .party-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #242424;
+      border: 1px solid #3d3d3d;
+      border-radius: 20px;
+      padding: 4px 10px;
+      font-size: 0.82rem;
+      color: #ddd;
+    }
+    .party-chip-num {
+      background: #ea580c;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.72rem;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .party-chip-remove {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      color: #888;
+      font-size: 1rem;
+      cursor: pointer;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+    }
+    .party-chip-remove:hover {
+      color: #f87171;
+    }
+    .party-clues-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin: 16px 0 18px 0;
+    }
+    .party-clue-card {
+      background: #222;
+      border: 1px solid #333;
+      border-left: 4px solid #ea580c;
+      border-radius: 6px;
+      padding: 12px 16px;
+      font-size: 1.2rem;
+      font-weight: 600;
+      color: #fff;
+      text-align: left;
+      line-height: 1.4;
+    }
+    .party-reveal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .party-reveal-card {
+      background: #161616;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 10px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .party-reveal-card img {
+      width: 100%;
+      max-width: 130px;
+      height: 150px;
+      object-fit: cover;
+      object-position: top center;
+      border-radius: 4px;
+      background: #222;
+      margin: 6px auto;
+      display: block;
+    }
     .hidden { display: none !important; }
     .status { font-size: 0.85rem; color: #aaa; margin: 6px 0; }
   </style>
@@ -426,12 +517,13 @@
 <body>
   <div class="narrow-wrap">
     <h1>Guess Who</h1>
-    <p class="sub">2-Player Similarity Mode or Solo 20-Questions Mode.</p>
+    <p class="sub">Multiplayer Similarities or Solo 20-Questions Mode.</p>
 
     <!-- Mode Switcher -->
     <div class="mode-bar">
-      <button type="button" class="mode-btn active" id="mode-2p-btn">👥 2-Player Similarity</button>
-      <button type="button" class="mode-btn" id="mode-solo-btn">👤 Solo Mode (Yes / No)</button>
+      <button type="button" class="mode-btn active" id="mode-2p-btn">👥 2-Player</button>
+      <button type="button" class="mode-btn" id="mode-party-btn">🎉 3+ Players</button>
+      <button type="button" class="mode-btn" id="mode-solo-btn">👤 Solo Mode</button>
     </div>
   </div>
 
@@ -537,6 +629,103 @@
   </div>
 
   <!-- ==================================================================== -->
+  <!-- 3+ PLAYER (PARTY) MODE SECTION                                       -->
+  <!-- ==================================================================== -->
+  <div id="party-section" class="hidden">
+    <div class="narrow-wrap">
+      <!-- Reveal Level Selector (LVL 1 Obscure -> LVL 3 Obvious) -->
+      <div class="level-bar" id="party-level-bar">
+        <button type="button" class="level-btn" data-level="1">LVL 1 • Obscure</button>
+        <button type="button" class="level-btn active" data-level="2">LVL 2 • Regular</button>
+        <button type="button" class="level-btn" data-level="3">LVL 3 • Obvious</button>
+      </div>
+
+      <!-- Party Setup / Character Entry Screen -->
+      <div id="party-input-screen" class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <h2 id="party-turn-title" style="margin:0; font-size:1.15rem;">Player 1: Choose Character</h2>
+          <span id="party-count-badge" style="font-size:0.82rem; color:#ea580c; font-weight:600;">0 Players Ready</span>
+        </div>
+
+        <!-- Locked Players Roster Chips -->
+        <div id="party-roster" class="party-roster"></div>
+
+        <div class="row">
+          <input id="party-char-input" type="text" placeholder="Search character or series..." autocomplete="off" />
+          <button id="party-random-btn" class="secondary" type="button" title="Pick a random mainstream character">🎲 Random</button>
+        </div>
+
+        <div id="party-search-status" class="status hidden"></div>
+        <div id="party-autocomplete-list" class="dropdown hidden"></div>
+
+        <!-- Selected character preview -->
+        <div id="party-selected-preview" class="preview hidden">
+          <img id="party-preview-img" src="" alt="Character preview" />
+          <div>
+            <div id="party-preview-name" style="font-weight:700;"></div>
+            <div id="party-preview-series" style="font-size:0.85rem; color:#999;"></div>
+          </div>
+        </div>
+
+        <!-- Dynamic Action Buttons -->
+        <div id="party-actions-wrap" style="margin-top:10px;">
+          <button id="party-lock-btn" type="button" style="width:100%;" disabled>
+            Lock In Player 1 Character
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Party Results Screen -->
+    <div id="party-result-screen" class="card hidden" style="margin-top:14px; padding:22px 18px;">
+      <div style="text-align:center;">
+        <div id="party-result-level-label" style="font-size:0.82rem; color:#888; text-transform:uppercase; letter-spacing:1px;">
+          What Your Characters Have In Common (LVL 2 • Regular)
+        </div>
+
+        <div id="party-clues-container" class="party-clues-container">
+          <div class="party-clue-card" style="text-align:center;">
+            Finding similarities<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:center; margin-bottom:12px;">
+          <button id="party-report-btn" type="button" class="report-tip-btn" style="display:none;" title="Report a weird, inaccurate, or low-quality clue">
+            🚩 Report Weird Clue
+          </button>
+        </div>
+
+        <div class="row" style="justify-content:center; max-width:440px; margin:0 auto 16px;">
+          <button id="party-regen-btn" class="secondary" type="button" style="flex:1;">New Clues</button>
+          <button id="party-reset-btn" type="button" style="flex:1;">New Game</button>
+        </div>
+      </div>
+
+      <!-- Party Helper: Fact Checker -->
+      <div class="helper-box" style="max-width:680px; margin:16px auto 0;">
+        <div class="helper-title">❓ Unsure about a fact? Ask the AI about any player's character:</div>
+        <form id="party-helper-form" class="row">
+          <select id="party-helper-target"></select>
+          <input id="party-helper-input" type="text" placeholder="e.g. Can they fly? Do they have siblings?" autocomplete="off" />
+          <button id="party-helper-ask-btn" type="submit">Ask AI</button>
+        </form>
+        <div id="party-helper-log" class="qa-log hidden"></div>
+      </div>
+
+      <!-- Player Reveals Section -->
+      <div style="margin-top:24px; border-top:1px solid #333; padding-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3 style="margin:0; font-size:1.05rem;">Player Characters (<span id="party-reveal-count">0</span>)</h3>
+          <button id="party-reveal-all-btn" class="secondary" type="button" style="padding:6px 14px; font-size:0.85rem;">
+            👁️ Reveal All
+          </button>
+        </div>
+        <div id="party-reveal-grid" class="party-reveal-grid"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
   <!-- SOLO MODE SECTION (AI picks random character, user asks Yes/No)       -->
   <!-- ==================================================================== -->
   <div id="solo-section" class="narrow-wrap hidden">
@@ -635,32 +824,37 @@
 
     // Mode switching
     const mode2pBtn = document.getElementById('mode-2p-btn');
+    const modePartyBtn = document.getElementById('mode-party-btn');
     const modeSoloBtn = document.getElementById('mode-solo-btn');
     const twoPlayerSection = document.getElementById('two-player-section');
+    const partySection = document.getElementById('party-section');
     const soloSection = document.getElementById('solo-section');
 
     let soloSessionId = null;
     let soloQuestionCount = 0;
 
-    mode2pBtn.addEventListener('click', () => {
-      mode2pBtn.classList.add('active');
-      modeSoloBtn.classList.remove('active');
-      twoPlayerSection.classList.remove('hidden');
-      soloSection.classList.add('hidden');
-    });
+    function switchMode(target) {
+      mode2pBtn.classList.toggle('active', target === '2p');
+      modePartyBtn.classList.toggle('active', target === 'party');
+      modeSoloBtn.classList.toggle('active', target === 'solo');
 
-    modeSoloBtn.addEventListener('click', () => {
-      modeSoloBtn.classList.add('active');
-      mode2pBtn.classList.remove('active');
-      twoPlayerSection.classList.add('hidden');
-      soloSection.classList.remove('hidden');
-      if (sharedGameBanner.classList.contains('hidden')) {
-        soloGiveupBtn.style.display = 'inline-flex';
+      twoPlayerSection.classList.toggle('hidden', target !== '2p');
+      partySection.classList.toggle('hidden', target !== 'party');
+      soloSection.classList.toggle('hidden', target !== 'solo');
+
+      if (target === 'solo') {
+        if (sharedGameBanner.classList.contains('hidden')) {
+          soloGiveupBtn.style.display = 'inline-flex';
+        }
+        if (!soloSessionId) {
+          startSoloGame();
+        }
       }
-      if (!soloSessionId) {
-        startSoloGame();
-      }
-    });
+    }
+
+    mode2pBtn.addEventListener('click', () => switchMode('2p'));
+    modePartyBtn.addEventListener('click', () => switchMode('party'));
+    modeSoloBtn.addEventListener('click', () => switchMode('solo'));
 
     // ========================================================================
     // 2-PLAYER SIMILARITY LOGIC
@@ -1111,6 +1305,530 @@
         reportSubmitBtn.textContent = 'Submit Report';
       }
     });
+
+    // ========================================================================
+    // 3+ PLAYER (PARTY) MODE LOGIC
+    // ========================================================================
+    let partyPlayers = [];
+    let partyCurrentSelection = null;
+    let partySelectedLevel = 2;
+    let partyCachedLevels = null;
+    let partyPreviousClues = [];
+    let partyDebounceTimer = null;
+    let partyCurrentClues = [];
+    let partyAllRevealed = false;
+
+    const partyLevelBar = document.getElementById('party-level-bar');
+    const partyLevelBtns = partyLevelBar.querySelectorAll('.level-btn');
+    const partyInputScreen = document.getElementById('party-input-screen');
+    const partyResultScreen = document.getElementById('party-result-screen');
+    const partyTurnTitle = document.getElementById('party-turn-title');
+    const partyCountBadge = document.getElementById('party-count-badge');
+    const partyRoster = document.getElementById('party-roster');
+    const partyCharInput = document.getElementById('party-char-input');
+    const partyRandomBtn = document.getElementById('party-random-btn');
+    const partySearchStatus = document.getElementById('party-search-status');
+    const partyAutocompleteList = document.getElementById('party-autocomplete-list');
+    const partySelectedPreview = document.getElementById('party-selected-preview');
+    const partyPreviewImg = document.getElementById('party-preview-img');
+    const partyPreviewName = document.getElementById('party-preview-name');
+    const partyPreviewSeries = document.getElementById('party-preview-series');
+    const partyActionsWrap = document.getElementById('party-actions-wrap');
+    const partyResultLevelLabel = document.getElementById('party-result-level-label');
+    const partyCluesContainer = document.getElementById('party-clues-container');
+    const partyReportBtn = document.getElementById('party-report-btn');
+    const partyRegenBtn = document.getElementById('party-regen-btn');
+    const partyResetBtn = document.getElementById('party-reset-btn');
+    const partyHelperForm = document.getElementById('party-helper-form');
+    const partyHelperTarget = document.getElementById('party-helper-target');
+    const partyHelperInput = document.getElementById('party-helper-input');
+    const partyHelperAskBtn = document.getElementById('party-helper-ask-btn');
+    const partyHelperLog = document.getElementById('party-helper-log');
+    const partyRevealCount = document.getElementById('party-reveal-count');
+    const partyRevealAllBtn = document.getElementById('party-reveal-all-btn');
+    const partyRevealGrid = document.getElementById('party-reveal-grid');
+
+    function updatePartySetupUI() {
+      const nextNum = partyPlayers.length + 1;
+      partyTurnTitle.textContent = `Player ${nextNum}: Choose Character`;
+      partyCountBadge.textContent = `${partyPlayers.length} Player${partyPlayers.length === 1 ? '' : 's'} Ready`;
+
+      // Render roster chips
+      partyRoster.innerHTML = '';
+      partyPlayers.forEach((p, idx) => {
+        const chip = document.createElement('div');
+        chip.className = 'party-chip';
+        chip.innerHTML = `
+          <span class="party-chip-num">${idx + 1}</span>
+          <span>Player ${idx + 1}: Ready</span>
+          <button type="button" class="party-chip-remove" title="Remove Player ${idx + 1}">✖</button>
+        `;
+        chip.querySelector('.party-chip-remove').onclick = () => {
+          partyPlayers.splice(idx, 1);
+          updatePartySetupUI();
+        };
+        partyRoster.appendChild(chip);
+      });
+
+      // Render action buttons
+      partyActionsWrap.innerHTML = '';
+      const hasSelection = !!partyCurrentSelection;
+      if (partyPlayers.length < 2) {
+        const btn = document.createElement('button');
+        btn.id = 'party-lock-btn';
+        btn.type = 'button';
+        btn.style.width = '100%';
+        btn.disabled = !hasSelection;
+        btn.textContent = `Lock In Player ${nextNum} Character`;
+        btn.onclick = () => {
+          if (!partyCurrentSelection) return;
+          partyPlayers.push(partyCurrentSelection);
+          clearPartyInputUI();
+          updatePartySetupUI();
+          partyCharInput.focus();
+        };
+        partyActionsWrap.appendChild(btn);
+      } else {
+        const row = document.createElement('div');
+        row.className = 'row';
+
+        const addBtn = document.createElement('button');
+        addBtn.id = 'party-add-btn';
+        addBtn.type = 'button';
+        addBtn.className = 'secondary';
+        addBtn.style.flex = '1';
+        addBtn.disabled = !hasSelection;
+        addBtn.textContent = `➕ Add Player ${nextNum} & Next`;
+        addBtn.onclick = () => {
+          if (!partyCurrentSelection) return;
+          partyPlayers.push(partyCurrentSelection);
+          clearPartyInputUI();
+          updatePartySetupUI();
+          partyCharInput.focus();
+        };
+
+        const playBtn = document.createElement('button');
+        playBtn.id = 'party-play-btn';
+        playBtn.type = 'button';
+        playBtn.style.flex = '1.3';
+        playBtn.disabled = !hasSelection;
+        playBtn.textContent = `🚀 Lock In & Play (${nextNum} Players)`;
+        playBtn.onclick = () => {
+          if (!partyCurrentSelection) return;
+          partyPlayers.push(partyCurrentSelection);
+          clearPartyInputUI();
+          startPartyGame();
+        };
+
+        row.appendChild(addBtn);
+        row.appendChild(playBtn);
+        partyActionsWrap.appendChild(row);
+      }
+    }
+
+    function setPartyButtonsDisabled(disabled) {
+      partyActionsWrap.querySelectorAll('button').forEach((b) => {
+        b.disabled = disabled;
+      });
+    }
+
+    function selectPartyCharacter(charObj) {
+      partyCurrentSelection = charObj;
+      partyCharInput.value = charObj.name;
+      partyAutocompleteList.classList.add('hidden');
+      partyPreviewImg.src = charObj.image || placeholderImg;
+      partyPreviewName.textContent = charObj.name;
+      partyPreviewSeries.textContent = charObj.series || 'Custom entry';
+      partySelectedPreview.classList.remove('hidden');
+      setPartyButtonsDisabled(false);
+    }
+
+    function clearPartyInputUI() {
+      partyCharInput.value = '';
+      partyCurrentSelection = null;
+      partyAutocompleteList.innerHTML = '';
+      partyAutocompleteList.classList.add('hidden');
+      partySelectedPreview.classList.add('hidden');
+      partyPreviewImg.src = '';
+      partyPreviewName.textContent = '';
+      partyPreviewSeries.textContent = '';
+      setPartyButtonsDisabled(true);
+    }
+
+    function renderPartyDropdown(results, rawQuery) {
+      partyAutocompleteList.innerHTML = '';
+      const trimmed = rawQuery.trim();
+
+      if (!results.length && trimmed.length >= 2) {
+        const manualItem = document.createElement('div');
+        manualItem.className = 'dropdown-item';
+        manualItem.textContent = `Use "${trimmed}" directly`;
+        manualItem.onclick = () => selectPartyCharacter({
+          name: trimmed,
+          series: 'Manual Entry',
+          image: null,
+          description: trimmed
+        });
+        partyAutocompleteList.appendChild(manualItem);
+      }
+
+      results.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'dropdown-item';
+        const img = document.createElement('img');
+        img.src = item.image || placeholderImg;
+        img.onerror = () => { img.src = placeholderImg; };
+
+        const meta = document.createElement('div');
+        meta.className = 'dropdown-meta';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'dropdown-name';
+        nameEl.textContent = item.name;
+
+        const seriesEl = document.createElement('div');
+        seriesEl.className = 'dropdown-series';
+        seriesEl.textContent = `${item.series} • ${item.source}`;
+
+        meta.appendChild(nameEl);
+        meta.appendChild(seriesEl);
+        row.appendChild(img);
+        row.appendChild(meta);
+        row.onclick = () => selectPartyCharacter(item);
+        partyAutocompleteList.appendChild(row);
+      });
+
+      if (trimmed.length >= 2) {
+        const reqRow = document.createElement('div');
+        reqRow.className = 'dropdown-item';
+        reqRow.style.justifyContent = 'center';
+        reqRow.style.color = '#fb923c';
+        reqRow.style.fontWeight = '600';
+        reqRow.style.fontSize = '0.9rem';
+        reqRow.style.background = '#27170a';
+        reqRow.textContent = `➕ Request Character "${trimmed}"`;
+        reqRow.onclick = async (e) => {
+          e.stopPropagation();
+          reqRow.style.pointerEvents = 'none';
+          reqRow.textContent = 'Submitting request...';
+          try {
+            await fetch('/api/characters/request', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: trimmed })
+            });
+            reqRow.style.color = '#4ade80';
+            reqRow.textContent = `✅ Requested "${trimmed}"!`;
+          } catch {
+            reqRow.style.color = '#f87171';
+            reqRow.textContent = 'Failed to request character.';
+          }
+        };
+        partyAutocompleteList.appendChild(reqRow);
+        partyAutocompleteList.classList.remove('hidden');
+      } else {
+        partyAutocompleteList.classList.add('hidden');
+      }
+    }
+
+    async function runPartySearch(query) {
+      if (query.trim().length < 2) {
+        partyAutocompleteList.classList.add('hidden');
+        partySearchStatus.classList.add('hidden');
+        return;
+      }
+      partySearchStatus.textContent = 'Searching...';
+      partySearchStatus.classList.remove('hidden');
+
+      try {
+        const res = await fetch(`/api/characters/search?q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        partySearchStatus.classList.add('hidden');
+        renderPartyDropdown(data.results || [], query);
+      } catch (err) {
+        partySearchStatus.textContent = 'Search failed.';
+      }
+    }
+
+    partyCharInput.addEventListener('input', () => {
+      const val = partyCharInput.value;
+      if (val.trim().length >= 2) {
+        partyCurrentSelection = { name: val.trim(), series: 'Custom', image: null, description: val.trim() };
+        setPartyButtonsDisabled(false);
+      } else {
+        partyCurrentSelection = null;
+        setPartyButtonsDisabled(true);
+      }
+      partySelectedPreview.classList.add('hidden');
+
+      clearTimeout(partyDebounceTimer);
+      partyDebounceTimer = setTimeout(() => runPartySearch(val), 250);
+    });
+
+    partyRandomBtn.addEventListener('click', async () => {
+      partyRandomBtn.disabled = true;
+      partySearchStatus.textContent = 'Picking mainstream random character...';
+      partySearchStatus.classList.remove('hidden');
+      partyAutocompleteList.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/characters/random');
+        const data = await res.json();
+        partySearchStatus.classList.add('hidden');
+        if (data.character) {
+          selectPartyCharacter(data.character);
+        }
+      } catch (err) {
+        partySearchStatus.textContent = 'Failed to pick random character.';
+      } finally {
+        partyRandomBtn.disabled = false;
+      }
+    });
+
+    // Level selector for party mode
+    partyLevelBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        partySelectedLevel = Number(btn.dataset.level);
+        partyLevelBtns.forEach((b) => b.classList.toggle('active', b === btn));
+        partyResultLevelLabel.textContent = `What Your Characters Have In Common (${levelNames[partySelectedLevel]})`;
+        if (!partyResultScreen.classList.contains('hidden')) {
+          if (partyCachedLevels && partyCachedLevels[partySelectedLevel]) {
+            renderPartyClues(partyCachedLevels[partySelectedLevel]);
+          } else if (partyPlayers.length >= 3) {
+            fetchPartySimilarity();
+          }
+        }
+      });
+    });
+
+    function renderPartyClues(clues) {
+      const list = Array.isArray(clues) ? clues : [clues];
+      partyCurrentClues = list;
+      partyCluesContainer.innerHTML = '';
+      list.forEach((c) => {
+        const card = document.createElement('div');
+        card.className = 'party-clue-card';
+        card.textContent = c;
+        partyCluesContainer.appendChild(card);
+      });
+      partyReportBtn.style.display = 'inline-flex';
+      partyReportBtn.textContent = '🚩 Report Weird Clue';
+      partyReportBtn.disabled = false;
+    }
+
+    async function fetchPartySimilarity() {
+      partyResultLevelLabel.textContent = `What Your Characters Have In Common (${levelNames[partySelectedLevel]})`;
+      partyCluesContainer.innerHTML = '<div class="party-clue-card" style="text-align:center;">Finding similarities<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span></div>';
+      partyRegenBtn.disabled = true;
+      partyReportBtn.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/similarity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            characters: partyPlayers,
+            level: partySelectedLevel,
+            previousClues: partyPreviousClues
+          })
+        });
+        const data = await res.json();
+        if (data.clues || data.similarity) {
+          partyCachedLevels = data.levels || null;
+          const chosen = (partyCachedLevels && partyCachedLevels[partySelectedLevel]) || data.clues || [data.similarity];
+          renderPartyClues(chosen);
+          if (data.levels) {
+            Object.values(data.levels).forEach((arr) => {
+              const items = Array.isArray(arr) ? arr : [arr];
+              items.forEach((c) => {
+                if (c && !partyPreviousClues.includes(c)) partyPreviousClues.push(c);
+              });
+            });
+          }
+        } else {
+          partyCluesContainer.innerHTML = `<div class="party-clue-card" style="text-align:center; color:#f87171;">${data.error || 'Could not generate similarity.'}</div>`;
+        }
+      } catch (err) {
+        partyCluesContainer.innerHTML = '<div class="party-clue-card" style="text-align:center; color:#f87171;">Error connecting to backend.</div>';
+      } finally {
+        partyRegenBtn.disabled = false;
+      }
+    }
+
+    function renderPartyRevealCards() {
+      partyRevealGrid.innerHTML = '';
+      partyAllRevealed = false;
+      partyRevealAllBtn.textContent = '👁️ Reveal All';
+
+      partyPlayers.forEach((p, idx) => {
+        const card = document.createElement('div');
+        card.className = 'party-reveal-card';
+
+        const title = document.createElement('div');
+        title.style.fontWeight = '700';
+        title.style.fontSize = '0.82rem';
+        title.style.color = '#ea580c';
+        title.textContent = `PLAYER ${idx + 1}`;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'secondary';
+        btn.style.width = '100%';
+        btn.style.padding = '6px 8px';
+        btn.style.fontSize = '0.8rem';
+        btn.textContent = `👁️ Reveal P${idx + 1}`;
+
+        const details = document.createElement('div');
+        details.className = 'party-player-details hidden';
+
+        const img = document.createElement('img');
+        img.src = p.image || placeholderImg;
+        img.alt = p.name;
+        img.onerror = () => { img.src = placeholderImg; };
+
+        const nameEl = document.createElement('div');
+        nameEl.style.fontWeight = '700';
+        nameEl.style.fontSize = '0.9rem';
+        nameEl.textContent = p.name;
+
+        const seriesEl = document.createElement('div');
+        seriesEl.style.fontSize = '0.75rem';
+        seriesEl.style.color = '#888';
+        seriesEl.textContent = p.series || '';
+
+        details.appendChild(img);
+        details.appendChild(nameEl);
+        details.appendChild(seriesEl);
+
+        btn.onclick = () => {
+          const isHidden = details.classList.contains('hidden');
+          if (isHidden) {
+            details.classList.remove('hidden');
+            btn.textContent = `🙈 Hide P${idx + 1}`;
+          } else {
+            details.classList.add('hidden');
+            btn.textContent = `👁️ Reveal P${idx + 1}`;
+          }
+        };
+
+        card.appendChild(title);
+        card.appendChild(btn);
+        card.appendChild(details);
+        partyRevealGrid.appendChild(card);
+      });
+    }
+
+    partyRevealAllBtn.addEventListener('click', () => {
+      partyAllRevealed = !partyAllRevealed;
+      partyRevealAllBtn.textContent = partyAllRevealed ? '🙈 Hide All' : '👁️ Reveal All';
+      const cards = partyRevealGrid.querySelectorAll('.party-reveal-card');
+      cards.forEach((card, idx) => {
+        const btn = card.querySelector('button');
+        const details = card.querySelector('.party-player-details');
+        if (partyAllRevealed) {
+          details.classList.remove('hidden');
+          btn.textContent = `🙈 Hide P${idx + 1}`;
+        } else {
+          details.classList.add('hidden');
+          btn.textContent = `👁️ Reveal P${idx + 1}`;
+        }
+      });
+    });
+
+    function startPartyGame() {
+      partyInputScreen.classList.add('hidden');
+      partyResultScreen.classList.remove('hidden');
+      partyRevealCount.textContent = partyPlayers.length;
+
+      // Populate helper target dropdown
+      partyHelperTarget.innerHTML = '';
+      partyPlayers.forEach((p, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        opt.textContent = `Player ${idx + 1}`;
+        partyHelperTarget.appendChild(opt);
+      });
+
+      renderPartyRevealCards();
+      fetchPartySimilarity();
+    }
+
+    partyRegenBtn.addEventListener('click', () => {
+      fetchPartySimilarity();
+    });
+
+    partyResetBtn.addEventListener('click', () => {
+      partyPlayers = [];
+      partyCachedLevels = null;
+      partyPreviousClues = [];
+      partyCurrentClues = [];
+      partyHelperLog.innerHTML = '';
+      partyHelperLog.classList.add('hidden');
+      clearPartyInputUI();
+      updatePartySetupUI();
+      partyResultScreen.classList.add('hidden');
+      partyInputScreen.classList.remove('hidden');
+    });
+
+    partyReportBtn.addEventListener('click', () => {
+      reportQuote.textContent = (partyCurrentClues || []).join(' | ');
+      reportNote.value = '';
+      reportModal.classList.remove('hidden');
+      reportNote.focus();
+    });
+
+    // Party helper question form
+    partyHelperForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const q = partyHelperInput.value.trim();
+      if (!q) return;
+      const targetIdx = Number(partyHelperTarget.value);
+      const targetChar = partyPlayers[targetIdx];
+      if (!targetChar) return;
+
+      partyHelperInput.disabled = true;
+      partyHelperAskBtn.disabled = true;
+      partyHelperAskBtn.textContent = '...';
+
+      try {
+        const res = await fetch('/api/character/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ character: targetChar, question: q })
+        });
+        const data = await res.json();
+        const ans = data.answer || "I don't know.";
+
+        const row = document.createElement('div');
+        row.className = 'qa-item';
+
+        const qEl = document.createElement('span');
+        qEl.className = 'qa-q';
+        qEl.textContent = `[P${targetIdx + 1}] ${q}`;
+
+        const aEl = document.createElement('span');
+        const isYes = /^yes\b/i.test(ans);
+        const isNo = /^no\b/i.test(ans);
+        aEl.className = `qa-a ${isYes ? 'yes' : isNo ? 'no' : 'unknown'}`;
+        aEl.textContent = ans;
+
+        row.appendChild(qEl);
+        row.appendChild(aEl);
+        partyHelperLog.prepend(row);
+        partyHelperLog.classList.remove('hidden');
+        partyHelperInput.value = '';
+      } catch (err) {
+        // ignore
+      } finally {
+        partyHelperInput.disabled = false;
+        partyHelperAskBtn.disabled = false;
+        partyHelperAskBtn.textContent = 'Ask AI';
+        partyHelperInput.focus();
+      }
+    });
+
+    // Initialize party setup UI on load
+    updatePartySetupUI();
 
     // ========================================================================
     // SOLO MODE LOGIC
