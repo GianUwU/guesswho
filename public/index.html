@@ -1,0 +1,1560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="referrer" content="no-referrer" />
+  <title>Guess Who</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="alternate icon" href="/favicon.ico" />
+
+  <!-- Embed & Sharing Metadata (Discord / Social) -->
+  <meta name="description" content="A pop culture character guessing game. Compare deep lore connections in 2-Player Similarity Mode or play Solo 20-Questions against the AI judge." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Guess Who" />
+  <meta property="og:description" content="A pop culture character guessing game. Compare deep lore connections in 2-Player Similarity Mode or play Solo 20-Questions against the AI judge." />
+  <meta property="og:url" content="https://guesswho.gian.ink" />
+  <meta property="og:site_name" content="Guess Who" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Guess Who" />
+  <meta name="twitter:description" content="A pop culture character guessing game. Compare deep lore connections in 2-Player Similarity Mode or play Solo 20-Questions against the AI judge." />
+  <meta name="theme-color" content="#ea580c" />
+  <style>
+    * { box-sizing: border-box; }
+    img {
+      object-fit: cover;
+      object-position: top center;
+    }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 980px;
+      margin: 28px auto;
+      padding: 0 16px;
+      background: #111;
+      color: #eee;
+    }
+    .narrow-wrap {
+      max-width: 560px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.4rem; margin-bottom: 4px; }
+    p.sub { color: #999; font-size: 0.9rem; margin-top: 0; margin-bottom: 16px; }
+    .mode-bar, .level-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .mode-btn, .level-btn {
+      flex: 1;
+      padding: 9px 8px;
+      background: #1d1d1d;
+      border: 1px solid #3a3a3a;
+      color: #bbb;
+      font-size: 0.86rem;
+      border-radius: 5px;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .mode-btn.active, .level-btn.active {
+      background: #ea580c;
+      border-color: #f97316;
+      color: #fff;
+      font-weight: 600;
+    }
+    .card {
+      border: 1px solid #333;
+      background: #1a1a1a;
+      padding: 16px;
+      border-radius: 6px;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    input[type="text"], select {
+      padding: 10px;
+      background: #0d0d0d;
+      border: 1px solid #444;
+      color: #fff;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      min-width: 0;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    input[type="text"]:focus, select:focus {
+      outline: none;
+      border-color: #f97316;
+      box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.25);
+    }
+    input[type="text"] { flex: 1; }
+    button {
+      padding: 10px 12px;
+      background: #ea580c;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.92rem;
+      white-space: nowrap;
+      transition: background 0.15s;
+    }
+    button:hover:not(:disabled) {
+      background: #f97316;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: #333; }
+    button.secondary:hover:not(:disabled) { background: #444; }
+    .dropdown {
+      border: 1px solid #333;
+      background: #141414;
+      max-height: 310px;
+      overflow-y: auto;
+      border-radius: 4px;
+      margin-bottom: 12px;
+    }
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px;
+      border-bottom: 1px solid #222;
+      cursor: pointer;
+    }
+    .dropdown-item:hover { background: #262626; }
+    .dropdown-item img {
+      width: 42px;
+      height: 42px;
+      object-fit: cover;
+      object-position: top center;
+      border-radius: 4px;
+      background: #222;
+      flex-shrink: 0;
+    }
+    .dropdown-meta { overflow: hidden; }
+    .dropdown-name { font-weight: 600; font-size: 0.95rem; }
+    .dropdown-series { color: #888; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .preview {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 14px 0;
+      padding: 10px;
+      border: 1px solid #3a3a3a;
+      background: #111;
+      border-radius: 6px;
+    }
+    .preview img {
+      width: 72px;
+      height: 72px;
+      object-fit: cover;
+      object-position: top center;
+      border-radius: 4px;
+      background: #222;
+      flex-shrink: 0;
+    }
+    /* 3-Column Result Layout: [Left Player 1 Reveal] [Center Similarity & Helper] [Right Player 2 Reveal] */
+    .result-grid {
+      display: grid;
+      grid-template-columns: 200px 1fr 200px;
+      gap: 14px;
+      align-items: start;
+    }
+    @media (max-width: 780px) {
+      .result-grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .center-col {
+        grid-column: 1 / -1;
+        order: -1;
+      }
+    }
+    .side-wing {
+      border: 1px solid #333;
+      background: #161616;
+      border-radius: 6px;
+      padding: 12px;
+      text-align: center;
+    }
+    .side-wing img {
+      width: 100%;
+      max-width: 150px;
+      height: 180px;
+      object-fit: cover;
+      object-position: top center;
+      border-radius: 6px;
+      background: #222;
+      margin: 10px auto 8px;
+      display: block;
+    }
+    .similarity-box {
+      text-align: center;
+      padding: 22px 16px;
+    }
+    .similarity-text {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 14px 0 20px;
+      line-height: 1.35;
+      color: #fff;
+    }
+    .loading-dots {
+      display: inline-block;
+      width: 1.5em;
+      text-align: left;
+      vertical-align: baseline;
+      letter-spacing: 1px;
+    }
+    .loading-dots .dot {
+      display: inline-block;
+      opacity: 0;
+      transition: opacity 0.15s ease-in-out;
+    }
+    .loading-dots .dot-1 {
+      animation: dotStep1 1.4s infinite;
+    }
+    .loading-dots .dot-2 {
+      animation: dotStep2 1.4s infinite;
+    }
+    .loading-dots .dot-3 {
+      animation: dotStep3 1.4s infinite;
+    }
+    @keyframes dotStep1 {
+      0%, 100% { opacity: 1; }
+    }
+    @keyframes dotStep2 {
+      0%, 28% { opacity: 0; }
+      33%, 95% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    @keyframes dotStep3 {
+      0%, 61% { opacity: 0; }
+      66%, 95% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+    .helper-box {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid #2d2d2d;
+      text-align: left;
+    }
+    .helper-title {
+      font-size: 0.82rem;
+      color: #aaa;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    .qa-log {
+      max-height: 240px;
+      overflow-y: auto;
+      margin: 10px 0;
+      border: 1px solid #2b2b2b;
+      border-radius: 4px;
+      background: #121212;
+      padding: 8px;
+    }
+    .qa-item {
+      padding: 9px 8px;
+      border-bottom: 1px solid #242424;
+      font-size: 0.9rem;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .qa-item:last-child { border-bottom: none; }
+    .qa-q {
+      color: #e2e8f0;
+      word-break: break-word;
+      font-weight: 500;
+      line-height: 1.35;
+    }
+    .qa-ans-wrap {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .qa-a {
+      font-weight: 600;
+      white-space: normal;
+      word-break: break-word;
+      line-height: 1.45;
+      flex: 1;
+      text-align: left;
+    }
+    .qa-a.yes { color: #4ade80; }
+    .qa-a.no { color: #f87171; }
+    .qa-a.unknown { color: #facc15; font-size: 0.85rem; }
+    .select-wrap {
+      flex: 1;
+      min-width: 140px;
+    }
+    .select-label {
+      display: block;
+      font-size: 0.74rem;
+      color: #999;
+      font-weight: 600;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .styled-select {
+      width: 100%;
+      padding: 9px 12px;
+      background: #141414;
+      border: 1px solid #383838;
+      color: #eee;
+      border-radius: 4px;
+      font-size: 0.88rem;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .styled-select:focus {
+      border-color: #ea580c;
+      box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.2);
+    }
+    .heat-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      padding: 2px 7px;
+      border-radius: 999px;
+      white-space: nowrap;
+      user-select: none;
+    }
+    .heat-hot {
+      background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(249, 115, 22, 0.35));
+      color: #ff5722;
+      border: 1px solid rgba(255, 87, 34, 0.7);
+      box-shadow: 0 0 10px rgba(255, 87, 34, 0.4);
+      animation: pulse-hot 1.6s infinite alternate ease-in-out;
+    }
+    .heat-warm {
+      background: rgba(245, 158, 11, 0.2);
+      color: #fbbf24;
+      border: 1px solid rgba(245, 158, 11, 0.6);
+      box-shadow: 0 0 6px rgba(245, 158, 11, 0.25);
+    }
+    .heat-cold {
+      background: rgba(148, 163, 184, 0.15);
+      color: #94a3b8;
+      border: 1px solid rgba(148, 163, 184, 0.45);
+    }
+    @keyframes pulse-hot {
+      0% { transform: scale(1); box-shadow: 0 0 6px rgba(255, 87, 34, 0.35); }
+      100% { transform: scale(1.06); box-shadow: 0 0 14px rgba(255, 87, 34, 0.75); }
+    }
+    .report-tip-btn {
+      background: transparent;
+      color: #888;
+      border: 1px solid #333;
+      font-size: 0.76rem;
+      padding: 4px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+    .report-tip-btn:hover {
+      color: #f97316;
+      border-color: #ea580c;
+      background: rgba(234, 88, 12, 0.08);
+    }
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 16px;
+    }
+    .modal-card {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      border-radius: 8px;
+      max-width: 460px;
+      width: 100%;
+      padding: 18px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+    }
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: #888;
+      font-size: 1.4rem;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+    .modal-close:hover { color: #fff; }
+    .share-toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ea580c;
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+      z-index: 2000;
+      pointer-events: none;
+      animation: toast-in 0.25s ease-out;
+    }
+    @keyframes toast-in {
+      from { transform: translate(-50%, 20px); opacity: 0; }
+      to { transform: translate(-50%, 0); opacity: 1; }
+    }
+    .hidden { display: none !important; }
+    .status { font-size: 0.85rem; color: #aaa; margin: 6px 0; }
+  </style>
+</head>
+<body>
+  <div class="narrow-wrap">
+    <h1>Guess Who</h1>
+    <p class="sub">2-Player Similarity Mode or Solo 20-Questions Mode.</p>
+
+    <!-- Mode Switcher -->
+    <div class="mode-bar">
+      <button type="button" class="mode-btn active" id="mode-2p-btn">👥 2-Player Similarity</button>
+      <button type="button" class="mode-btn" id="mode-solo-btn">👤 Solo Mode (Yes / No)</button>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- 2-PLAYER MODE SECTION                                                -->
+  <!-- ==================================================================== -->
+  <div id="two-player-section">
+    <div class="narrow-wrap">
+      <!-- Reveal Level Selector (LVL 1 Obscure -> LVL 3 Obvious) -->
+      <div class="level-bar" id="level-bar">
+        <button type="button" class="level-btn" data-level="1">LVL 1 • Obscure</button>
+        <button type="button" class="level-btn active" data-level="2">LVL 2 • Medium</button>
+        <button type="button" class="level-btn" data-level="3">LVL 3 • Obvious</button>
+      </div>
+
+      <!-- STEP 1 & 2: Character Input -->
+      <div id="input-screen" class="card">
+        <h2 id="turn-title" style="margin-top:0; font-size:1.15rem;">Player 1: Choose Character</h2>
+
+        <div class="row">
+          <input id="char-input" type="text" placeholder="Search character or series..." autocomplete="off" />
+          <button id="random-btn" class="secondary" type="button" title="Pick a random mainstream character">🎲 Random</button>
+        </div>
+
+        <div id="search-status" class="status hidden"></div>
+        <div id="autocomplete-list" class="dropdown hidden"></div>
+
+        <!-- Selected character preview (only visible while current player is choosing) -->
+        <div id="selected-preview" class="preview hidden">
+          <img id="preview-img" src="" alt="Character preview" />
+          <div>
+            <div id="preview-name" style="font-weight:700;"></div>
+            <div id="preview-series" style="font-size:0.85rem; color:#999;"></div>
+          </div>
+        </div>
+
+        <button id="lock-btn" type="button" style="width:100%; margin-top:8px;" disabled>
+          Lock In Player 1 Character
+        </button>
+      </div>
+    </div>
+
+    <!-- STEP 3: Final Similarity Screen with Left & Right Reveal Wings -->
+    <div id="result-screen" class="result-grid hidden">
+      <!-- LEFT WING: Player 1 Reveal -->
+      <div class="side-wing">
+        <div style="font-size:0.78rem; color:#f97316; font-weight:700; text-transform:uppercase; margin-bottom:8px;">
+          Player 1
+        </div>
+        <button id="reveal-p1-btn" class="secondary" type="button" style="width:100%;">👁️ Reveal P1</button>
+        <div id="reveal-p1-card" class="hidden">
+          <img id="reveal-p1-img" src="" alt="Player 1 character" />
+          <div id="reveal-p1-name" style="font-weight:700; font-size:0.95rem;"></div>
+          <div id="reveal-p1-series" style="font-size:0.8rem; color:#999; margin-top:2px;"></div>
+        </div>
+      </div>
+
+      <!-- CENTER COLUMN: Similarity Clue + Fact Checker Question Box -->
+      <div class="card similarity-box center-col">
+        <div id="result-level-label" style="font-size:0.82rem; color:#888; text-transform:uppercase; letter-spacing:1px;">
+          What They Have In Common (LVL 2 • Medium)
+        </div>
+        <div id="similarity-output" class="similarity-text">Finding similarities<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span></div>
+        <div style="display:flex; justify-content:center; margin-bottom:12px;">
+          <button id="report-tip-btn" type="button" class="report-tip-btn" style="display:none;" title="Report a weird, inaccurate, or low-quality tip">
+            🚩 Report Weird Tip
+          </button>
+        </div>
+
+        <div class="row" style="justify-content:center;">
+          <button id="regen-btn" class="secondary" type="button" style="flex:1;">New Clue</button>
+          <button id="reset-btn" type="button" style="flex:1;">New Game</button>
+        </div>
+
+        <!-- Ask AI About Character 1 or Character 2 (In case players don't know a fact themselves) -->
+        <div class="helper-box">
+          <div class="helper-title">❓ Unsure about a fact? Ask the AI about either character:</div>
+          <form id="helper-form" class="row">
+            <select id="helper-target">
+              <option value="1">Char 1 (P1)</option>
+              <option value="2">Char 2 (P2)</option>
+            </select>
+            <input id="helper-input" type="text" placeholder="e.g. Can they swim? Do they have siblings?" autocomplete="off" />
+            <button id="helper-ask-btn" type="submit">Ask AI</button>
+          </form>
+          <div id="helper-log" class="qa-log hidden"></div>
+        </div>
+      </div>
+
+      <!-- RIGHT WING: Player 2 Reveal -->
+      <div class="side-wing">
+        <div style="font-size:0.78rem; color:#4ade80; font-weight:700; text-transform:uppercase; margin-bottom:8px;">
+          Player 2
+        </div>
+        <button id="reveal-p2-btn" class="secondary" type="button" style="width:100%;">👁️ Reveal P2</button>
+        <div id="reveal-p2-card" class="hidden">
+          <img id="reveal-p2-img" src="" alt="Player 2 character" />
+          <div id="reveal-p2-name" style="font-weight:700; font-size:0.95rem;"></div>
+          <div id="reveal-p2-series" style="font-size:0.8rem; color:#999; margin-top:2px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================================================================== -->
+  <!-- SOLO MODE SECTION (AI picks random character, user asks Yes/No)       -->
+  <!-- ==================================================================== -->
+  <div id="solo-section" class="narrow-wrap hidden">
+    <!-- Shared Game Banner (Only shown when viewing a shared link) -->
+    <div id="shared-game-banner" class="hidden" style="background:#27170a; border:1px solid #ea580c; border-radius:6px; padding:10px 14px; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <div style="font-weight:700; color:#fb923c; font-size:0.92rem;">Shared Solo Game Chat</div>
+        <div id="shared-game-sub" style="font-size:0.8rem; color:#aaa;">Viewing a game played by another user</div>
+      </div>
+      <button id="shared-play-btn" type="button" style="padding:6px 12px; font-size:0.82rem;">Play Your Own</button>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h2 style="margin:0; font-size:1.15rem;">Solo Mode: Guess the Character</h2>
+        <span id="solo-q-count" style="font-size:0.82rem; color:#888;">Questions: 0</span>
+      </div>
+
+      <!-- Gamemode & Difficulty Selectors -->
+      <div id="solo-filters-wrap" style="margin: 8px 0 14px 0; display:flex; gap:12px; flex-wrap:wrap;">
+        <div class="select-wrap">
+          <label for="solo-cat-select" class="select-label">Gamemode</label>
+          <select id="solo-cat-select" class="styled-select">
+            <option value="all">All Universes</option>
+            <option value="anime">Anime Only</option>
+            <option value="live_action">Live Action Only</option>
+            <option value="animation">Cartoons Only</option>
+            <option value="games">Games Only</option>
+          </select>
+        </div>
+        <div class="select-wrap">
+          <label for="solo-diff-select" class="select-label">Difficulty</label>
+          <select id="solo-diff-select" class="styled-select">
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="solo-status" class="status">Starting new Solo game...</div>
+      <div style="font-size:0.75rem; color:#777; margin: 4px 0 8px 0; line-height:1.4;">
+        💡 Visual Heat: <span style="color:#ff5722; font-weight:700;">🔥 HOT</span> / <span style="color:#fbbf24; font-weight:700;">♨️ WARM</span> / <span style="color:#94a3b8; font-weight:700;">❄️ COLD</span> indicates if you're onto a character's signature traits.
+      </div>
+
+      <!-- Question Input Row -->
+      <form id="solo-form" class="row" style="margin-top:10px;">
+        <input id="solo-input" type="text" placeholder="Ask a Yes/No question or guess the name..." autocomplete="off" disabled />
+        <button id="solo-ask-btn" type="submit" disabled>Ask</button>
+      </form>
+
+      <!-- Revealed Character Box (Only visible when guessed or given up) -->
+      <div id="solo-reveal-box" class="preview hidden" style="border-color:#4ade80;">
+        <img id="solo-reveal-img" src="" alt="Secret character" />
+        <div>
+          <div id="solo-reveal-title" style="font-size:0.8rem; color:#4ade80; font-weight:700; text-transform:uppercase;"></div>
+          <div id="solo-reveal-name" style="font-weight:700; font-size:1.1rem;"></div>
+          <div id="solo-reveal-series" style="font-size:0.85rem; color:#999;"></div>
+        </div>
+      </div>
+
+      <!-- Q&A History Log -->
+      <div id="solo-qa-log" class="qa-log hidden"></div>
+
+      <div class="row" style="margin-top:12px;">
+        <button id="solo-share-btn" class="secondary" type="button" style="display:none; flex:1;">📤 Share Chat</button>
+        <button id="solo-giveup-btn" class="secondary" type="button" style="flex:1;">Give Up / Reveal</button>
+        <button id="solo-new-btn" type="button" style="flex:1;">🎲 New Secret Character</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Report Weird Tip Modal -->
+  <div id="report-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0; font-size:1.05rem; display:flex; align-items:center; gap:6px;">🚩 Report Weird Tip</h3>
+        <button type="button" id="report-close-btn" class="modal-close">&times;</button>
+      </div>
+      <div style="font-size:0.82rem; color:#888; margin-bottom:8px;">Help improve bot accuracy. What's weird or inaccurate about this clue?</div>
+      <div id="report-quote" style="background:#111; padding:10px; border-radius:4px; font-size:0.88rem; color:#eee; font-style:italic; margin-bottom:12px; border-left:3px solid #ea580c;"></div>
+      <label style="font-size:0.82rem; color:#bbb; display:block; margin-bottom:4px;">Why is this tip weird or inaccurate? (Optional)</label>
+      <input type="text" id="report-note" placeholder="e.g. Too obvious giveaway, factually inaccurate, hallucination..." style="width:100%; margin-bottom:14px;" />
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button type="button" id="report-cancel-btn" class="secondary">Cancel</button>
+        <button type="button" id="report-submit-btn">Submit Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Share Toast Banner -->
+  <div id="share-toast" class="share-toast hidden"></div>
+
+  <script>
+    const placeholderImg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="100%" height="100%" fill="%23222"/><text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" fill="%23666" font-family="sans-serif" font-size="24">?</text></svg>';
+
+    // Mode switching
+    const mode2pBtn = document.getElementById('mode-2p-btn');
+    const modeSoloBtn = document.getElementById('mode-solo-btn');
+    const twoPlayerSection = document.getElementById('two-player-section');
+    const soloSection = document.getElementById('solo-section');
+
+    let soloSessionId = null;
+    let soloQuestionCount = 0;
+
+    mode2pBtn.addEventListener('click', () => {
+      mode2pBtn.classList.add('active');
+      modeSoloBtn.classList.remove('active');
+      twoPlayerSection.classList.remove('hidden');
+      soloSection.classList.add('hidden');
+    });
+
+    modeSoloBtn.addEventListener('click', () => {
+      modeSoloBtn.classList.add('active');
+      mode2pBtn.classList.remove('active');
+      twoPlayerSection.classList.add('hidden');
+      soloSection.classList.remove('hidden');
+      if (sharedGameBanner.classList.contains('hidden')) {
+        soloGiveupBtn.style.display = 'inline-flex';
+      }
+      if (!soloSessionId) {
+        startSoloGame();
+      }
+    });
+
+    // ========================================================================
+    // 2-PLAYER SIMILARITY LOGIC
+    // ========================================================================
+    let currentPlayer = 1;
+    let player1Char = null;
+    let player2Char = null;
+    let currentSelection = null;
+    let selectedLevel = 2;
+    let cachedLevels = null;
+    let previousClues = [];
+    let debounceTimer = null;
+
+    const inputScreen = document.getElementById('input-screen');
+    const resultScreen = document.getElementById('result-screen');
+    const resultLevelLabel = document.getElementById('result-level-label');
+    const turnTitle = document.getElementById('turn-title');
+    const charInput = document.getElementById('char-input');
+    const randomBtn = document.getElementById('random-btn');
+    const searchStatus = document.getElementById('search-status');
+    const autocompleteList = document.getElementById('autocomplete-list');
+    const selectedPreview = document.getElementById('selected-preview');
+    const previewImg = document.getElementById('preview-img');
+    const previewName = document.getElementById('preview-name');
+    const previewSeries = document.getElementById('preview-series');
+    const lockBtn = document.getElementById('lock-btn');
+    const similarityOutput = document.getElementById('similarity-output');
+    const regenBtn = document.getElementById('regen-btn');
+    const resetBtn = document.getElementById('reset-btn');
+    const revealP1Btn = document.getElementById('reveal-p1-btn');
+    const revealP2Btn = document.getElementById('reveal-p2-btn');
+    const revealP1Card = document.getElementById('reveal-p1-card');
+    const revealP2Card = document.getElementById('reveal-p2-card');
+    const revealP1Img = document.getElementById('reveal-p1-img');
+    const revealP1Name = document.getElementById('reveal-p1-name');
+    const revealP1Series = document.getElementById('reveal-p1-series');
+    const revealP2Img = document.getElementById('reveal-p2-img');
+    const revealP2Name = document.getElementById('reveal-p2-name');
+    const revealP2Series = document.getElementById('reveal-p2-series');
+    const helperForm = document.getElementById('helper-form');
+    const helperTarget = document.getElementById('helper-target');
+    const helperInput = document.getElementById('helper-input');
+    const helperAskBtn = document.getElementById('helper-ask-btn');
+    const helperLog = document.getElementById('helper-log');
+    const levelButtons = document.querySelectorAll('.level-btn');
+    const reportTipBtn = document.getElementById('report-tip-btn');
+    const reportModal = document.getElementById('report-modal');
+    const reportQuote = document.getElementById('report-quote');
+    const reportNote = document.getElementById('report-note');
+    const reportCloseBtn = document.getElementById('report-close-btn');
+    const reportCancelBtn = document.getElementById('report-cancel-btn');
+    const reportSubmitBtn = document.getElementById('report-submit-btn');
+
+    const soloShareBtn = document.getElementById('solo-share-btn');
+    const sharedGameBanner = document.getElementById('shared-game-banner');
+    const sharedGameSub = document.getElementById('shared-game-sub');
+    const sharedPlayBtn = document.getElementById('shared-play-btn');
+    const shareToast = document.getElementById('share-toast');
+
+    let toastTimer = null;
+    function showToast(msg) {
+      clearTimeout(toastTimer);
+      shareToast.textContent = msg;
+      shareToast.classList.remove('hidden');
+      toastTimer = setTimeout(() => {
+        shareToast.classList.add('hidden');
+      }, 3200);
+    }
+
+    const levelNames = { 1: 'LVL 1 • Obscure', 2: 'LVL 2 • Medium', 3: 'LVL 3 • Obvious' };
+
+    levelButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        selectedLevel = Number(btn.dataset.level);
+        levelButtons.forEach((b) => b.classList.toggle('active', b === btn));
+        resultLevelLabel.textContent = `What They Have In Common (${levelNames[selectedLevel]})`;
+        if (!resultScreen.classList.contains('hidden')) {
+          if (cachedLevels && cachedLevels[selectedLevel]) {
+            similarityOutput.textContent = cachedLevels[selectedLevel];
+            reportTipBtn.style.display = 'inline-flex';
+            reportTipBtn.textContent = '🚩 Report Weird Tip';
+            reportTipBtn.disabled = false;
+          } else if (player1Char && player2Char) {
+            fetchSimilarity();
+          }
+        }
+      });
+    });
+
+    function selectCharacter(charObj) {
+      currentSelection = charObj;
+      charInput.value = charObj.name;
+      autocompleteList.classList.add('hidden');
+      previewImg.src = charObj.image || placeholderImg;
+      previewName.textContent = charObj.name;
+      previewSeries.textContent = charObj.series || 'Custom entry';
+      selectedPreview.classList.remove('hidden');
+      lockBtn.disabled = false;
+    }
+
+    function renderDropdown(results, rawQuery) {
+      autocompleteList.innerHTML = '';
+      const trimmed = rawQuery.trim();
+
+      if (!results.length && trimmed.length >= 2) {
+        const manualItem = document.createElement('div');
+        manualItem.className = 'dropdown-item';
+        manualItem.textContent = `Use "${trimmed}" directly`;
+        manualItem.onclick = () => selectCharacter({
+          name: trimmed,
+          series: 'Manual Entry',
+          image: null,
+          description: trimmed
+        });
+        autocompleteList.appendChild(manualItem);
+      }
+
+      results.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'dropdown-item';
+        const img = document.createElement('img');
+        img.src = item.image || placeholderImg;
+        img.onerror = () => { img.src = placeholderImg; };
+
+        const meta = document.createElement('div');
+        meta.className = 'dropdown-meta';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'dropdown-name';
+        nameEl.textContent = item.name;
+
+        const seriesEl = document.createElement('div');
+        seriesEl.className = 'dropdown-series';
+        seriesEl.textContent = `${item.series} • ${item.source}`;
+
+        meta.appendChild(nameEl);
+        meta.appendChild(seriesEl);
+        row.appendChild(img);
+        row.appendChild(meta);
+        row.onclick = () => selectCharacter(item);
+        autocompleteList.appendChild(row);
+      });
+
+      // Always add "Request Character" option at the bottom of the dropdown list
+      if (trimmed.length >= 2) {
+        const reqRow = document.createElement('div');
+        reqRow.className = 'dropdown-item';
+        reqRow.style.justifyContent = 'center';
+        reqRow.style.color = '#fb923c';
+        reqRow.style.fontWeight = '600';
+        reqRow.style.fontSize = '0.9rem';
+        reqRow.style.background = '#27170a';
+        reqRow.textContent = `➕ Request Character "${trimmed}"`;
+        reqRow.onclick = async (e) => {
+          e.stopPropagation();
+          reqRow.style.pointerEvents = 'none';
+          reqRow.textContent = 'Submitting request...';
+          try {
+            await fetch('/api/characters/request', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: trimmed })
+            });
+            reqRow.style.color = '#4ade80';
+            reqRow.textContent = `✅ Requested "${trimmed}"!`;
+          } catch {
+            reqRow.style.color = '#f87171';
+            reqRow.textContent = 'Failed to request character.';
+          }
+        };
+        autocompleteList.appendChild(reqRow);
+        autocompleteList.classList.remove('hidden');
+      } else {
+        autocompleteList.classList.add('hidden');
+      }
+    }
+
+    async function runSearch(query) {
+      if (query.trim().length < 2) {
+        autocompleteList.classList.add('hidden');
+        searchStatus.classList.add('hidden');
+        return;
+      }
+      searchStatus.textContent = 'Searching...';
+      searchStatus.classList.remove('hidden');
+
+      try {
+        const res = await fetch(`/api/characters/search?q=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        searchStatus.classList.add('hidden');
+        renderDropdown(data.results || [], query);
+      } catch (err) {
+        searchStatus.textContent = 'Search failed.';
+      }
+    }
+
+    charInput.addEventListener('input', () => {
+      const val = charInput.value;
+      if (val.trim().length >= 2) {
+        currentSelection = { name: val.trim(), series: 'Custom', image: null, description: val.trim() };
+        lockBtn.disabled = false;
+      } else {
+        currentSelection = null;
+        lockBtn.disabled = true;
+      }
+      selectedPreview.classList.add('hidden');
+
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => runSearch(val), 250);
+    });
+
+    randomBtn.addEventListener('click', async () => {
+      randomBtn.disabled = true;
+      searchStatus.textContent = 'Picking mainstream random character...';
+      searchStatus.classList.remove('hidden');
+      autocompleteList.classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/characters/random');
+        const data = await res.json();
+        searchStatus.classList.add('hidden');
+        if (data.character) {
+          selectCharacter(data.character);
+        }
+      } catch (err) {
+        searchStatus.textContent = 'Failed to pick random character.';
+      } finally {
+        randomBtn.disabled = false;
+      }
+    });
+
+    function clearTurnUI() {
+      charInput.value = '';
+      currentSelection = null;
+      autocompleteList.innerHTML = '';
+      autocompleteList.classList.add('hidden');
+      selectedPreview.classList.add('hidden');
+      previewImg.src = '';
+      previewName.textContent = '';
+      previewSeries.textContent = '';
+      lockBtn.disabled = true;
+    }
+
+    async function fetchSimilarity() {
+      inputScreen.classList.add('hidden');
+      resultScreen.classList.remove('hidden');
+      resultLevelLabel.textContent = `What They Have In Common (${levelNames[selectedLevel]})`;
+      similarityOutput.innerHTML = 'Finding similarities<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span>';
+      regenBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/similarity', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            char1: player1Char,
+            char2: player2Char,
+            level: selectedLevel,
+            previousClues
+          })
+        });
+        const data = await res.json();
+        if (data.similarity) {
+          cachedLevels = data.levels || null;
+          similarityOutput.textContent = (cachedLevels && cachedLevels[selectedLevel]) || data.similarity;
+          reportTipBtn.style.display = 'inline-flex';
+          reportTipBtn.textContent = '🚩 Report Weird Tip';
+          reportTipBtn.disabled = false;
+          if (data.levels) {
+            Object.values(data.levels).forEach((c) => {
+              if (c && !previousClues.includes(c)) previousClues.push(c);
+            });
+          } else {
+            previousClues.push(data.similarity);
+          }
+        } else {
+          similarityOutput.textContent = data.error || 'Could not generate similarity.';
+          reportTipBtn.style.display = 'none';
+        }
+      } catch (err) {
+        similarityOutput.textContent = 'Error connecting to backend.';
+      } finally {
+        regenBtn.disabled = false;
+      }
+    }
+
+    lockBtn.addEventListener('click', () => {
+      if (!currentSelection) return;
+
+      if (currentPlayer === 1) {
+        player1Char = currentSelection;
+        currentPlayer = 2;
+        clearTurnUI();
+        turnTitle.textContent = 'Player 2: Choose Character';
+        lockBtn.textContent = 'Lock In & Show Similarity';
+        charInput.focus();
+      } else {
+        player2Char = currentSelection;
+        clearTurnUI();
+        fetchSimilarity();
+      }
+    });
+
+    revealP1Btn.addEventListener('click', () => {
+      if (!player1Char) return;
+      const isHidden = revealP1Card.classList.contains('hidden');
+      if (isHidden) {
+        revealP1Img.src = player1Char.image || placeholderImg;
+        revealP1Name.textContent = player1Char.name;
+        revealP1Series.textContent = player1Char.series || '';
+        revealP1Card.classList.remove('hidden');
+        revealP1Btn.textContent = '🙈 Hide P1';
+      } else {
+        revealP1Card.classList.add('hidden');
+        revealP1Btn.textContent = '👁️ Reveal P1';
+      }
+    });
+
+    revealP2Btn.addEventListener('click', () => {
+      if (!player2Char) return;
+      const isHidden = revealP2Card.classList.contains('hidden');
+      if (isHidden) {
+        revealP2Img.src = player2Char.image || placeholderImg;
+        revealP2Name.textContent = player2Char.name;
+        revealP2Series.textContent = player2Char.series || '';
+        revealP2Card.classList.remove('hidden');
+        revealP2Btn.textContent = '🙈 Hide P2';
+      } else {
+        revealP2Card.classList.add('hidden');
+        revealP2Btn.textContent = '👁️ Reveal P2';
+      }
+    });
+
+    // Helper Form: Ask AI a question about Char 1 or Char 2
+    helperForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const q = helperInput.value.trim();
+      if (!q) return;
+      const targetNum = helperTarget.value;
+      const targetChar = targetNum === '1' ? player1Char : player2Char;
+      if (!targetChar) return;
+
+      helperInput.disabled = true;
+      helperAskBtn.disabled = true;
+      helperAskBtn.textContent = '...';
+
+      try {
+        const res = await fetch('/api/character/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ character: targetChar, question: q })
+        });
+        const data = await res.json();
+        const ans = data.answer || "I don't know.";
+
+        const row = document.createElement('div');
+        row.className = 'qa-item';
+
+        const qEl = document.createElement('span');
+        qEl.className = 'qa-q';
+        qEl.textContent = `[Char ${targetNum}] ${q}`;
+
+        const aEl = document.createElement('span');
+        const isYes = /^yes\b/i.test(ans);
+        const isNo = /^no\b/i.test(ans);
+        aEl.className = `qa-a ${isYes ? 'yes' : isNo ? 'no' : 'unknown'}`;
+        aEl.textContent = ans;
+
+        row.appendChild(qEl);
+        row.appendChild(aEl);
+        helperLog.prepend(row);
+        helperLog.classList.remove('hidden');
+        helperInput.value = '';
+      } catch (err) {
+        // ignore
+      } finally {
+        helperInput.disabled = false;
+        helperAskBtn.disabled = false;
+        helperAskBtn.textContent = 'Ask AI';
+        helperInput.focus();
+      }
+    });
+
+    regenBtn.addEventListener('click', () => {
+      fetchSimilarity();
+    });
+
+    resetBtn.addEventListener('click', () => {
+      currentPlayer = 1;
+      player1Char = null;
+      player2Char = null;
+      cachedLevels = null;
+      previousClues = [];
+      reportTipBtn.style.display = 'none';
+      clearTurnUI();
+      revealP1Card.classList.add('hidden');
+      revealP2Card.classList.add('hidden');
+      revealP1Btn.textContent = '👁️ Reveal P1';
+      revealP2Btn.textContent = '👁️ Reveal P2';
+      helperLog.innerHTML = '';
+      helperLog.classList.add('hidden');
+      helperInput.value = '';
+      turnTitle.textContent = 'Player 1: Choose Character';
+      lockBtn.textContent = 'Lock In Player 1 Character';
+      resultScreen.classList.add('hidden');
+      inputScreen.classList.remove('hidden');
+      charInput.focus();
+    });
+
+    reportTipBtn.addEventListener('click', () => {
+      const currentClue = similarityOutput.textContent.trim();
+      if (!currentClue || currentClue === 'Thinking...' || currentClue.startsWith('Finding') || currentClue.startsWith('Error') || currentClue.startsWith('Could not')) return;
+      reportQuote.textContent = `"${currentClue}"`;
+      reportNote.value = '';
+      reportModal.classList.remove('hidden');
+      reportNote.focus();
+    });
+
+    reportCloseBtn.addEventListener('click', () => reportModal.classList.add('hidden'));
+    reportCancelBtn.addEventListener('click', () => reportModal.classList.add('hidden'));
+
+    reportSubmitBtn.addEventListener('click', async () => {
+      const currentClue = similarityOutput.textContent.trim();
+      if (!currentClue) return;
+      reportSubmitBtn.disabled = true;
+      reportSubmitBtn.textContent = 'Submitting...';
+
+      try {
+        await fetch('/api/tips/report', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            char1: player1Char,
+            char2: player2Char,
+            level: selectedLevel,
+            clue: currentClue,
+            note: reportNote.value.trim(),
+          })
+        });
+        reportModal.classList.add('hidden');
+        reportTipBtn.textContent = '✅ Reported! Thank you';
+        reportTipBtn.disabled = true;
+        showToast('Report submitted! Thank you for the feedback.');
+      } catch (err) {
+        alert('Failed to submit report. Please try again.');
+      } finally {
+        reportSubmitBtn.disabled = false;
+        reportSubmitBtn.textContent = 'Submit Report';
+      }
+    });
+
+    // ========================================================================
+    // SOLO MODE LOGIC
+    // ========================================================================
+    const soloStatus = document.getElementById('solo-status');
+    const soloQCount = document.getElementById('solo-q-count');
+    const soloForm = document.getElementById('solo-form');
+    const soloInput = document.getElementById('solo-input');
+    const soloAskBtn = document.getElementById('solo-ask-btn');
+    const soloQaLog = document.getElementById('solo-qa-log');
+    const soloRevealBox = document.getElementById('solo-reveal-box');
+    const soloRevealImg = document.getElementById('solo-reveal-img');
+    const soloRevealTitle = document.getElementById('solo-reveal-title');
+    const soloRevealName = document.getElementById('solo-reveal-name');
+    const soloRevealSeries = document.getElementById('solo-reveal-series');
+    const soloGiveupBtn = document.getElementById('solo-giveup-btn');
+    const soloNewBtn = document.getElementById('solo-new-btn');
+    const soloFiltersWrap = document.getElementById('solo-filters-wrap');
+
+    const soloCatSelect = document.getElementById('solo-cat-select');
+    const soloDiffSelect = document.getElementById('solo-diff-select');
+
+    if (soloCatSelect) {
+      soloCatSelect.addEventListener('change', () => {
+        startSoloGame();
+      });
+    }
+
+    if (soloDiffSelect) {
+      soloDiffSelect.addEventListener('change', () => {
+        startSoloGame();
+      });
+    }
+
+    function isIncompleteInput(text = '') {
+      const t = (text || '').trim();
+      if (!t) return true;
+      if (/^(is|are|am|was|were|do|does|did|can|could|will|would|has|have|had|what|who|where|when|why|how|the|a|an)$/i.test(t)) {
+        return true;
+      }
+      const words = t.split(/\s+/);
+      if (words.length <= 4) {
+        if (/^(is|are|was|were|do|does|did|can|could|will|would|has|have|had)\s+(he|she|it|they|this|that|the|a|an)?$/i.test(t)) {
+          return true;
+        }
+        if (/^(what|who|where|when|why|how)\s+(is|are|was|were|do|does|did)?$/i.test(t)) {
+          return true;
+        }
+      }
+      if (/(?:\s|^)(?:a|an|the|and|or|of|in|to|with|from|about|like|as)\s*$/i.test(t)) {
+        return true;
+      }
+      return false;
+    }
+
+    function isNonYesNoQuestion(text = '') {
+      const raw = (text || '').trim();
+      const q = raw.toLowerCase().replace(/[^a-z0-9\s?]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!q) return false;
+
+      // Direct guess check - e.g. "Is it Naruto?", "Naruto Uzumaki", "Are you SpongeBob?"
+      if (/^(is it|are you|is the character|is he|is she)\s+([a-z0-9\s]+)\?*$/i.test(q)) {
+        return false;
+      }
+
+      if (/^(what|where|when|why|how|which|whose)\b/i.test(q)) return true;
+      if (/^who\s+(is|are|was|were)\s+(his|her|their|the\s+main|the\s+best|the\s+worst|the|your)\b/i.test(q)) return true;
+      if (/^(who|whom)\s+(did|does|do|killed|created|made|voiced|wrote|likes|loves|hates)\b/i.test(q)) return true;
+      if (/^(tell me|give me|describe|explain|show me|give a hint|hint|give clue|clue)\b/i.test(q)) return true;
+
+      return false;
+    }
+
+    async function startSoloGame() {
+      soloSessionId = null;
+      soloQuestionCount = 0;
+      soloQCount.textContent = 'Questions: 0';
+      soloQaLog.innerHTML = '';
+      soloQaLog.classList.add('hidden');
+      soloRevealBox.classList.add('hidden');
+      soloInput.value = '';
+      soloInput.disabled = true;
+      soloAskBtn.disabled = true;
+      soloGiveupBtn.style.display = 'inline-flex';
+      soloGiveupBtn.disabled = true;
+      soloShareBtn.style.display = 'none';
+      soloShareBtn.textContent = '📤 Share Chat';
+      soloShareBtn.disabled = false;
+      soloStatus.innerHTML = 'Picking a secret character<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span>';
+
+      const category = soloCatSelect ? soloCatSelect.value : 'all';
+      const difficulty = soloDiffSelect ? soloDiffSelect.value : 'easy';
+
+      try {
+        const res = await fetch('/api/solo/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ category, difficulty })
+        });
+        const data = await res.json();
+        if (data.sessionId) {
+          soloSessionId = data.sessionId;
+          soloStatus.textContent = data.message;
+          soloInput.disabled = false;
+          soloAskBtn.disabled = false;
+          soloGiveupBtn.style.display = 'inline-flex';
+          soloGiveupBtn.disabled = false;
+          soloInput.focus();
+        } else {
+          soloStatus.textContent = data.error || 'Failed to start Solo Mode.';
+        }
+      } catch (err) {
+        soloStatus.textContent = 'Error connecting to server.';
+      }
+    }
+
+    function showSoloCharacterReveal(charObj, headerText, borderColor) {
+      soloRevealBox.style.borderColor = borderColor;
+      soloRevealTitle.style.color = borderColor;
+      soloRevealTitle.textContent = headerText;
+      soloRevealImg.src = charObj.image || placeholderImg;
+      soloRevealName.textContent = charObj.name;
+      soloRevealSeries.textContent = charObj.series || '';
+      soloRevealBox.classList.remove('hidden');
+      soloInput.disabled = true;
+      soloAskBtn.disabled = true;
+      soloGiveupBtn.disabled = true;
+    }
+
+    soloForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const q = soloInput.value.trim();
+      if (!q || !soloSessionId) return;
+
+      if (isIncompleteInput(q)) {
+        soloStatus.textContent = "✍️ It looks like your thought isn't finished! Take your time and complete your question.";
+        soloInput.focus();
+        return;
+      }
+
+      if (isNonYesNoQuestion(q)) {
+        soloStatus.textContent = "⚠️ In Guess Who, you can only ask Yes/No questions! (e.g. 'Do they have black hair?')";
+        soloInput.focus();
+        return;
+      }
+
+      soloInput.disabled = true;
+      soloAskBtn.disabled = true;
+      soloAskBtn.innerHTML = 'Thinking<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span>';
+      soloStatus.innerHTML = 'AI is checking character facts<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span>';
+
+      // Immediate loading indicator in QA chat log
+      soloQaLog.classList.remove('hidden');
+      const pendingRow = document.createElement('div');
+      pendingRow.id = 'solo-pending-row';
+      pendingRow.className = 'qa-item';
+      pendingRow.style.opacity = '0.75';
+
+      const pendingQ = document.createElement('span');
+      pendingQ.className = 'qa-q';
+      pendingQ.textContent = `${soloQuestionCount + 1}. ${q}`;
+
+      const pendingAnsWrap = document.createElement('div');
+      pendingAnsWrap.className = 'qa-ans-wrap';
+
+      const pendingA = document.createElement('span');
+      pendingA.className = 'qa-a unknown';
+      pendingA.style.display = 'inline-flex';
+      pendingA.style.alignItems = 'center';
+      pendingA.style.gap = '4px';
+      pendingA.innerHTML = '🤔 Consulting character lore<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span>';
+
+      pendingAnsWrap.appendChild(pendingA);
+      pendingRow.appendChild(pendingQ);
+      pendingRow.appendChild(pendingAnsWrap);
+      soloQaLog.prepend(pendingRow);
+
+      const cleanupPending = () => {
+        const pending = document.getElementById('solo-pending-row');
+        if (pending) pending.remove();
+        soloAskBtn.textContent = 'Ask';
+      };
+
+      try {
+        const res = await fetch('/api/solo/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: soloSessionId, question: q })
+        });
+        const data = await res.json();
+
+        if (data.incomplete) {
+          cleanupPending();
+          soloStatus.textContent = data.answer || "✍️ It looks like your thought isn't finished! Take your time and complete your question.";
+          soloInput.disabled = false;
+          soloAskBtn.disabled = false;
+          soloInput.focus();
+          return;
+        }
+
+        if (data.invalid) {
+          cleanupPending();
+          soloStatus.textContent = data.answer || "⚠️ In Guess Who, you can only ask Yes/No questions! (e.g. 'Do they have black hair?')";
+          soloInput.disabled = false;
+          soloAskBtn.disabled = false;
+          soloInput.focus();
+          return;
+        }
+
+        cleanupPending();
+        soloQuestionCount++;
+        soloQCount.textContent = `Questions: ${soloQuestionCount}`;
+
+        const row = document.createElement('div');
+        row.className = 'qa-item';
+
+        const qEl = document.createElement('span');
+        qEl.className = 'qa-q';
+        qEl.textContent = `${soloQuestionCount}. ${q}`;
+
+        const ansWrap = document.createElement('div');
+        ansWrap.className = 'qa-ans-wrap';
+
+        if (data.heat === 'hot') {
+          const badge = document.createElement('span');
+          badge.className = 'heat-badge heat-hot';
+          badge.textContent = '🔥 HOT!';
+          ansWrap.appendChild(badge);
+        } else if (data.heat === 'warm') {
+          const badge = document.createElement('span');
+          badge.className = 'heat-badge heat-warm';
+          badge.textContent = '♨️ WARM';
+          ansWrap.appendChild(badge);
+        } else if (data.heat === 'cold') {
+          const badge = document.createElement('span');
+          badge.className = 'heat-badge heat-cold';
+          badge.textContent = '❄️ COLD';
+          ansWrap.appendChild(badge);
+        }
+
+        const aEl = document.createElement('span');
+        const ans = data.answer || '';
+        const isYes = data.verdict === 'YES' || (data.verdict !== 'NO' && /\byes\b/i.test(ans));
+        const isNo = data.verdict === 'NO' || /\b(no|nope)\b/i.test(ans);
+        aEl.className = `qa-a ${isYes ? 'yes' : isNo ? 'no' : 'unknown'}`;
+        aEl.textContent = ans;
+        ansWrap.appendChild(aEl);
+
+        row.appendChild(qEl);
+        row.appendChild(ansWrap);
+        soloQaLog.prepend(row);
+        soloQaLog.classList.remove('hidden');
+        soloShareBtn.style.display = 'inline-flex';
+
+        soloInput.value = '';
+
+        if (data.guessed && data.character) {
+          soloStatus.textContent = `🎉 You got it in ${soloQuestionCount} question(s)!`;
+          showSoloCharacterReveal(data.character, '🎉 You Guessed It!', '#4ade80');
+        } else {
+          soloStatus.textContent = 'Ask another Yes/No question or guess the character.';
+          soloInput.disabled = false;
+          soloAskBtn.disabled = false;
+          soloInput.focus();
+        }
+      } catch (err) {
+        cleanupPending();
+        soloStatus.textContent = 'Error asking question.';
+        soloInput.disabled = false;
+        soloAskBtn.disabled = false;
+      }
+    });
+
+    soloShareBtn.addEventListener('click', async () => {
+      if (!soloSessionId || soloQuestionCount === 0) return;
+      soloShareBtn.disabled = true;
+      const originalText = soloShareBtn.textContent;
+      soloShareBtn.textContent = 'Sharing...';
+
+      try {
+        const res = await fetch('/api/solo/share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: soloSessionId })
+        });
+        const data = await res.json();
+        if (data.ok && data.shareUrl) {
+          try {
+            await navigator.clipboard.writeText(data.shareUrl);
+            soloShareBtn.textContent = '✅ Link Copied!';
+            showToast('📋 Link copied to clipboard!');
+          } catch {
+            prompt('Copy your shareable game link:', data.shareUrl);
+          }
+
+          if (navigator.share && /mobile|android|iphone|ipad/i.test(navigator.userAgent)) {
+            navigator.share({
+              title: 'Guess Who Solo Game',
+              url: data.shareUrl,
+            }).catch(() => {});
+          }
+
+          setTimeout(() => {
+            soloShareBtn.disabled = false;
+            soloShareBtn.textContent = '📤 Share Chat';
+          }, 3500);
+        } else {
+          alert(data.error || 'Could not share game.');
+          soloShareBtn.disabled = false;
+          soloShareBtn.textContent = originalText;
+        }
+      } catch (err) {
+        alert('Failed to share game chat.');
+        soloShareBtn.disabled = false;
+        soloShareBtn.textContent = originalText;
+      }
+    });
+
+    soloGiveupBtn.addEventListener('click', async () => {
+      if (!soloSessionId) return;
+      try {
+        const res = await fetch('/api/solo/reveal', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: soloSessionId })
+        });
+        const data = await res.json();
+        if (data.character) {
+          soloStatus.textContent = 'Character revealed!';
+          showSoloCharacterReveal(data.character, 'Secret Character Revealed', '#facc15');
+          if (soloQuestionCount > 0) {
+            soloShareBtn.style.display = 'inline-flex';
+          }
+        }
+      } catch (err) {
+        soloStatus.textContent = 'Could not reveal character.';
+      }
+    });
+
+    soloNewBtn.addEventListener('click', () => {
+      window.history.replaceState(null, '', window.location.pathname);
+      sharedGameBanner.classList.add('hidden');
+      if (soloFiltersWrap) soloFiltersWrap.classList.remove('hidden');
+      soloForm.classList.remove('hidden');
+      soloGiveupBtn.style.display = 'inline-flex';
+      startSoloGame();
+    });
+
+    async function loadSharedSoloGame(shareId) {
+      modeSoloBtn.click();
+      soloStatus.textContent = 'Loading shared game chat...';
+      if (soloFiltersWrap) soloFiltersWrap.classList.add('hidden');
+      soloForm.classList.add('hidden');
+      soloGiveupBtn.style.display = 'none';
+      soloShareBtn.style.display = 'none';
+
+      try {
+        const res = await fetch(`/api/solo/share/${encodeURIComponent(shareId)}`);
+        const data = await res.json();
+        if (data.ok && data.share) {
+          const s = data.share;
+          const char = s.character || {};
+          sharedGameBanner.classList.remove('hidden');
+          sharedGameSub.textContent = `Played ${new Date(s.createdAt).toLocaleDateString()} • ${s.questionCount} question(s) asked`;
+
+          soloStatus.textContent = s.guessed
+            ? `🎉 Player guessed it in ${s.questionCount} questions!`
+            : s.revealed
+            ? `Revealed after ${s.questionCount} questions.`
+            : `Game in progress (${s.questionCount} questions asked).`;
+
+          showSoloCharacterReveal(char, s.guessed ? '🎉 Secret Character Guessed!' : 'Secret Character', s.guessed ? '#4ade80' : '#facc15');
+
+          // Render Q&A log
+          soloQaLog.innerHTML = '';
+          soloQCount.textContent = `Questions: ${s.questionCount}`;
+          s.history.forEach((h, idx) => {
+            const row = document.createElement('div');
+            row.className = 'qa-item';
+
+            const qEl = document.createElement('span');
+            qEl.className = 'qa-q';
+            qEl.textContent = `${idx + 1}. ${h.question}`;
+
+            const ansWrap = document.createElement('div');
+            ansWrap.className = 'qa-ans-wrap';
+
+            if (h.heat === 'hot') {
+              const badge = document.createElement('span');
+              badge.className = 'heat-badge heat-hot';
+              badge.textContent = '🔥 HOT!';
+              ansWrap.appendChild(badge);
+            } else if (h.heat === 'warm') {
+              const badge = document.createElement('span');
+              badge.className = 'heat-badge heat-warm';
+              badge.textContent = '♨️ WARM';
+              ansWrap.appendChild(badge);
+            } else if (h.heat === 'cold') {
+              const badge = document.createElement('span');
+              badge.className = 'heat-badge heat-cold';
+              badge.textContent = '❄️ COLD';
+              ansWrap.appendChild(badge);
+            }
+
+            const aEl = document.createElement('span');
+            const ans = h.answer || '';
+            const isYes = h.verdict === 'YES' || (h.verdict !== 'NO' && /\byes\b/i.test(ans));
+            const isNo = h.verdict === 'NO' || /\b(no|nope)\b/i.test(ans);
+            aEl.className = `qa-a ${isYes ? 'yes' : isNo ? 'no' : 'unknown'}`;
+            aEl.textContent = ans;
+            ansWrap.appendChild(aEl);
+
+            row.appendChild(qEl);
+            row.appendChild(ansWrap);
+            soloQaLog.appendChild(row);
+          });
+          soloQaLog.classList.remove('hidden');
+        } else {
+          soloStatus.textContent = 'Shared game not found.';
+          if (soloFiltersWrap) soloFiltersWrap.classList.remove('hidden');
+          soloForm.classList.remove('hidden');
+          soloGiveupBtn.style.display = 'inline-flex';
+        }
+      } catch (err) {
+        soloStatus.textContent = 'Failed to load shared game.';
+        if (soloFiltersWrap) soloFiltersWrap.classList.remove('hidden');
+        soloForm.classList.remove('hidden');
+        soloGiveupBtn.style.display = 'inline-flex';
+      }
+    }
+
+    sharedPlayBtn.addEventListener('click', () => {
+      window.history.replaceState(null, '', window.location.pathname);
+      sharedGameBanner.classList.add('hidden');
+      if (soloFiltersWrap) soloFiltersWrap.classList.remove('hidden');
+      soloForm.classList.remove('hidden');
+      soloGiveupBtn.style.display = 'inline-flex';
+      startSoloGame();
+    });
+
+    const shareParam = new URLSearchParams(window.location.search).get('share');
+    if (shareParam) {
+      loadSharedSoloGame(shareParam);
+    }
+  </script>
+</body>
+</html>

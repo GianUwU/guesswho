@@ -1,0 +1,42 @@
+services:
+  guesswho:
+    image: registry.gian.ink/guesswho:latest
+    container_name: guesswho
+    restart: unless-stopped
+    volumes:
+      - ./data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - TZ=Europe/Zurich
+      - DATA_DIR=/app/data
+      - OLLAMA_URL=http://ollama:11434
+      - SMART_MODEL=llama3.1:latest
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+      - GEMINI_MODEL=gemini-flash-lite-latest
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=frontend
+
+      # 1. Main public game router (accessible without account)
+      - traefik.http.routers.guesswho.rule=Host(`guesswho.gian.ink`)
+      - traefik.http.routers.guesswho.entrypoints=websecure
+      - traefik.http.routers.guesswho.tls=true
+      - traefik.http.routers.guesswho.tls.certresolver=cloudflare
+      - traefik.http.routers.guesswho.service=guesswho
+      - traefik.http.services.guesswho.loadbalancer.server.port=3000
+
+      # 2. Admin router protected by Authentik SSO (admins group only)
+      - traefik.http.routers.guesswho-admin.rule=Host(`guesswho.gian.ink`) && (PathPrefix(`/admin`) || PathPrefix(`/api/admin`) || PathPrefix(`/outpost.goauthentik.io`))
+      - traefik.http.routers.guesswho-admin.entrypoints=websecure
+      - traefik.http.routers.guesswho-admin.tls=true
+      - traefik.http.routers.guesswho-admin.tls.certresolver=cloudflare
+      - traefik.http.routers.guesswho-admin.middlewares=authentik@docker
+      - traefik.http.routers.guesswho-admin.priority=100
+      - traefik.http.routers.guesswho-admin.service=guesswho
+    networks:
+      - frontend
+
+networks:
+  frontend:
+    external: true

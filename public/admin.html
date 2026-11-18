@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guess Who - Admin</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="alternate icon" href="/favicon.ico" />
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 680px;
+      margin: 32px auto;
+      padding: 0 16px;
+      background: #111;
+      color: #eee;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    h1 { font-size: 1.4rem; margin: 0; }
+    h2 { font-size: 1.1rem; margin-top: 0; margin-bottom: 8px; }
+    a.back {
+      color: #f97316;
+      text-decoration: none;
+      font-size: 0.9rem;
+    }
+    a.back:hover {
+      color: #fb923c;
+    }
+    .card {
+      border: 1px solid #333;
+      background: #1a1a1a;
+      padding: 18px;
+      border-radius: 6px;
+      margin-bottom: 18px;
+    }
+    .provider-switch {
+      display: flex;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .provider-btn {
+      flex: 1;
+      padding: 14px 12px;
+      border: 1px solid #3a3a3a;
+      background: #141414;
+      color: #bbb;
+      border-radius: 6px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .provider-btn.active {
+      background: #3b1704;
+      border-color: #f97316;
+      color: #fff;
+    }
+    .provider-title {
+      font-weight: 700;
+      font-size: 0.98rem;
+      margin-bottom: 4px;
+    }
+    .provider-sub {
+      font-size: 0.8rem;
+      color: #888;
+    }
+    .provider-btn.active .provider-sub {
+      color: #fed7aa;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.92rem;
+    }
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid #2a2a2a;
+      text-align: left;
+    }
+    th {
+      color: #888;
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+    }
+    button.del-btn {
+      padding: 5px 10px;
+      background: #3f1d1d;
+      color: #fca5a5;
+      border: 1px solid #7f1d1d;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    button.del-btn:hover {
+      background: #7f1d1d;
+      color: #fff;
+    }
+    .status {
+      font-size: 0.85rem;
+      color: #4ade80;
+      margin-top: 8px;
+    }
+    .empty {
+      color: #777;
+      padding: 16px 0;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>⚙️ Guess Who Admin Panel</h1>
+    <a class="back" href="/">← Back to Game</a>
+  </div>
+
+  <!-- 1. Similarity AI Provider Switch -->
+  <div class="card">
+    <h2>Similarity AI Provider</h2>
+    <div style="font-size:0.86rem; color:#999;">
+      Choose which AI model generates the 2-Player similarity clues (Solo Mode & Fact Helper continue using local Ollama).
+    </div>
+
+    <div class="provider-switch">
+      <button type="button" class="provider-btn" id="btn-gemini" data-provider="gemini">
+        <div class="provider-title">✨ Google Gemini API</div>
+        <div class="provider-sub" id="sub-gemini">gemini-flash-latest (Cloud API)</div>
+      </button>
+
+      <button type="button" class="provider-btn" id="btn-ollama" data-provider="ollama">
+        <div class="provider-title">🦙 Local Ollama</div>
+        <div class="provider-sub" id="sub-ollama">llama3.1:latest (gian.ink GPU)</div>
+      </button>
+    </div>
+
+    <div id="provider-status" class="status"></div>
+  </div>
+
+  <!-- 2. Requested Characters List -->
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2 style="margin:0;">Requested Characters</h2>
+      <button type="button" id="clear-all-btn" class="del-btn">Clear All</button>
+    </div>
+
+    <div id="requests-container">
+      <div class="empty">Loading requested characters...</div>
+    </div>
+  </div>
+
+  <!-- 3. Reported Bot Tips List -->
+  <div class="card">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+      <h2 style="margin:0;">Reported Bot Tips & Clues</h2>
+      <button type="button" id="clear-all-reports-btn" class="del-btn" style="display:none;">Clear All</button>
+    </div>
+    <div style="font-size:0.84rem; color:#888; margin-top:4px;">
+      Tips reported by players in the main game as weird, inaccurate, or low-quality.
+    </div>
+
+    <div id="reports-container" style="margin-top:12px;">
+      <div class="empty">Loading reported tips...</div>
+    </div>
+  </div>
+
+  <script>
+    const btnGemini = document.getElementById('btn-gemini');
+    const btnOllama = document.getElementById('btn-ollama');
+    const subGemini = document.getElementById('sub-gemini');
+    const subOllama = document.getElementById('sub-ollama');
+    const providerStatus = document.getElementById('provider-status');
+    const requestsContainer = document.getElementById('requests-container');
+    const clearAllBtn = document.getElementById('clear-all-btn');
+    const reportsContainer = document.getElementById('reports-container');
+    const clearAllReportsBtn = document.getElementById('clear-all-reports-btn');
+
+    function updateProviderUI(provider, geminiModel, ollamaModel) {
+      btnGemini.classList.toggle('active', provider === 'gemini');
+      btnOllama.classList.toggle('active', provider === 'ollama');
+      if (geminiModel) subGemini.textContent = `${geminiModel} (Cloud API)`;
+      if (ollamaModel) subOllama.textContent = `${ollamaModel} (gian.ink GPU)`;
+    }
+
+    function renderRequests(list) {
+      if (!list || list.length === 0) {
+        requestsContainer.innerHTML = '<div class="empty">No characters have been requested yet.</div>';
+        clearAllBtn.style.display = 'none';
+        return;
+      }
+      clearAllBtn.style.display = 'inline-block';
+
+      const table = document.createElement('table');
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Character Name</th>
+            <th>Requests</th>
+            <th>Last Requested</th>
+            <th style="text-align:right;">Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector('tbody');
+
+      list.forEach((item) => {
+        const tr = document.createElement('tr');
+        const dateStr = item.lastRequestedAt
+          ? new Date(item.lastRequestedAt).toLocaleString()
+          : '-';
+
+        const tdName = document.createElement('td');
+        tdName.style.fontWeight = '600';
+        tdName.textContent = item.name;
+
+        const tdCount = document.createElement('td');
+        tdCount.textContent = item.count || 1;
+
+        const tdDate = document.createElement('td');
+        tdDate.style.color = '#999';
+        tdDate.style.fontSize = '0.82rem';
+        tdDate.textContent = dateStr;
+
+        const tdAction = document.createElement('td');
+        tdAction.style.textAlign = 'right';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'del-btn';
+        delBtn.textContent = 'Remove';
+        delBtn.onclick = async () => {
+          const res = await fetch(`/api/admin/requests/${encodeURIComponent(item.id)}`, {
+            method: 'DELETE'
+          });
+          const data = await res.json();
+          renderRequests(data.requestedCharacters || []);
+        };
+        tdAction.appendChild(delBtn);
+
+        tr.appendChild(tdName);
+        tr.appendChild(tdCount);
+        tr.appendChild(tdDate);
+        tr.appendChild(tdAction);
+        tbody.appendChild(tr);
+      });
+
+      requestsContainer.innerHTML = '';
+      requestsContainer.appendChild(table);
+    }
+
+    function renderReports(list) {
+      if (!list || list.length === 0) {
+        reportsContainer.innerHTML = '<div class="empty">No weird tips have been reported. Great job!</div>';
+        clearAllReportsBtn.style.display = 'none';
+        return;
+      }
+      clearAllReportsBtn.style.display = 'inline-block';
+
+      const table = document.createElement('table');
+      table.innerHTML = `
+        <thead>
+          <tr>
+            <th>Date & Pair</th>
+            <th>LVL</th>
+            <th>Reported Clue</th>
+            <th>Player Note</th>
+            <th style="text-align:right;">Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector('tbody');
+
+      list.forEach((r) => {
+        const tr = document.createElement('tr');
+        const dateStr = r.createdAt ? new Date(r.createdAt).toLocaleString() : '-';
+
+        const tdPair = document.createElement('td');
+        tdPair.innerHTML = `<div style="font-weight:600; font-size:0.88rem;">${r.char1} vs ${r.char2}</div><div style="font-size:0.75rem; color:#888;">${dateStr}</div>`;
+
+        const tdLevel = document.createElement('td');
+        tdLevel.innerHTML = `<span style="font-weight:700; color:#ea580c; font-size:0.8rem;">LVL ${r.level}</span>`;
+
+        const tdClue = document.createElement('td');
+        tdClue.style.fontStyle = 'italic';
+        tdClue.style.fontSize = '0.86rem';
+        tdClue.style.color = '#ddd';
+        tdClue.textContent = `"${r.clue}"`;
+
+        const tdNote = document.createElement('td');
+        tdNote.style.fontSize = '0.82rem';
+        tdNote.style.color = '#fb923c';
+        tdNote.textContent = r.note || 'None given';
+
+        const tdAction = document.createElement('td');
+        tdAction.style.textAlign = 'right';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'del-btn';
+        delBtn.textContent = 'Dismiss';
+        delBtn.onclick = async () => {
+          const res = await fetch(`/api/admin/reports/${encodeURIComponent(r.id)}`, {
+            method: 'DELETE'
+          });
+          const data = await res.json();
+          renderReports(data.reportedTips || []);
+        };
+        tdAction.appendChild(delBtn);
+
+        tr.appendChild(tdPair);
+        tr.appendChild(tdLevel);
+        tr.appendChild(tdClue);
+        tr.appendChild(tdNote);
+        tr.appendChild(tdAction);
+        tbody.appendChild(tr);
+      });
+
+      reportsContainer.innerHTML = '';
+      reportsContainer.appendChild(table);
+    }
+
+    async function loadAdminState() {
+      try {
+        const res = await fetch('/api/admin/state');
+        const data = await res.json();
+        updateProviderUI(data.similarityProvider, data.geminiModel, data.ollamaModel);
+        renderRequests(data.requestedCharacters || []);
+        renderReports(data.reportedTips || []);
+      } catch (err) {
+        requestsContainer.innerHTML = '<div class="empty">Failed to load admin state.</div>';
+      }
+    }
+
+    async function setProvider(provider) {
+      providerStatus.textContent = 'Saving...';
+      try {
+        const res = await fetch('/api/admin/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ similarityProvider: provider })
+        });
+        const data = await res.json();
+        if (data.ok) {
+          updateProviderUI(data.similarityProvider);
+          providerStatus.textContent = `Active similarity provider set to: ${data.similarityProvider.toUpperCase()}`;
+        }
+      } catch (err) {
+        providerStatus.textContent = 'Failed to update provider.';
+      }
+    }
+
+    btnGemini.addEventListener('click', () => setProvider('gemini'));
+    btnOllama.addEventListener('click', () => setProvider('ollama'));
+
+    clearAllBtn.addEventListener('click', async () => {
+      const res = await fetch('/api/admin/requests', { method: 'DELETE' });
+      const data = await res.json();
+      renderRequests(data.requestedCharacters || []);
+    });
+
+    clearAllReportsBtn.addEventListener('click', async () => {
+      const res = await fetch('/api/admin/reports', { method: 'DELETE' });
+      const data = await res.json();
+      renderReports(data.reportedTips || []);
+    });
+
+    loadAdminState();
+  </script>
+</body>
+</html>
