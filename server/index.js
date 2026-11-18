@@ -2082,32 +2082,28 @@ Return ONLY valid JSON:
     .map((c) => cleanSimilarityOutput(c, characters))
     .filter((c) => c && c.split(/\s+/).length >= 3);
 
-  // STAGE 2: Judge AI evaluates difficulty: Level 1 (Obscure), Level 2 (Regular), Level 3 (Obvious)
+  // STAGE 2: Judge AI selects the absolute best set of clues covering all characters
   const judgeSysPrompt = `You are the Judge AI for a multiplayer (${characters.length} players) Guess Who character game.
 Review the candidate clues below for the ${characters.length} characters (Character 1 through Character ${characters.length}).
-Your goal is to select clues for 3 difficulty levels:
-- "level_1" (Obscure): Hardest difficulty. Obscure or subtle connections that are 100% canonically true, but tough to deduce.
-- "level_2" (Regular): Medium difficulty. Balanced connections.
-- "level_3" (Obvious): Easiest difficulty. Obvious, recognizable traits.
+Your goal is to select the ABSOLUTE BEST combination of clues for these characters.
 
-MANDATORY COVERAGE & CLUE SELECTION RULES:
+MANDATORY RULES:
 1. AT LEAST ONE HINT CONNECTED TO EACH PLAYER'S CHARACTER:
-   - Every single player's character (Character 1 through Character ${characters.length}) MUST be connected to at least one hint in the chosen set for each level!
-   - If you select 1 universal clue ("All of your characters..."), it naturally covers every player's character.
-   - If no single universal clue covers all characters, you MUST select 2 to ${maxClues} subset clues (e.g. "Three of your characters..." and "Two of your characters...", or "Two of your characters..." and "One of your characters...") such that the union of characters described covers EVERY player's character! No player's character may ever be left out with 0 hints.
-2. Fact-check strictly against all characters. Verify the count matches canon reality (e.g. if it says "Two of your characters", ensure the count matches).
+   - Every single player's character (Character 1 through Character ${characters.length}) MUST be connected to at least one hint in the chosen set!
+   - If there is a great universal clue ("All of your characters..."), output just that 1 universal clue.
+   - If no single universal clue covers all characters, output 2 to ${maxClues} complementary subset clues (e.g. "Three of your characters..." and "Two of your characters...", or "Two of your characters..." and "One of your characters...") such that EVERY player's character is included in at least one hint! Never leave any player's character out with 0 hints.
+2. ABSOLUTE BEST QUALITY:
+   - Select the most fun, clever, canonically accurate, and engaging pop-culture connections.
+   - Reject any false facts, weak stretches, or meta media cop-outs (never mention cartoons, anime, media, fiction, series, or video games).
 3. Clues must start with "All of your characters", "X of your characters", "One of your characters", or "None of your characters".
 4. Never mention character names, series, or player numbers!
-5. PURE DIFFICULTY CALIBRATION:
-   - level_1 MUST be obscure/challenging.
-   - level_2 is medium/standard.
-   - level_3 is obvious/easy.
 
 Return ONLY valid JSON:
 {
-  "level_1": ["Clue 1", "Clue 2"],
-  "level_2": ["Clue 1", "Clue 2"],
-  "level_3": ["Clue 1", "Clue 2"]
+  "clues": [
+    "Clue 1...",
+    "Clue 2..."
+  ]
 }`;
 
   const judgeUserText = `Characters:
@@ -2119,45 +2115,26 @@ ${candidates.map((c, i) => `${i + 1}. ${c}`).join('\n')}`;
   const stage2 = await callGeminiJSON(judgeSysPrompt, judgeUserText, 0.1);
   const p2 = stage2.parsed || {};
 
-  function parseClues(val, fallbackIdx) {
-    let list = [];
-    if (Array.isArray(val)) {
-      list = val;
-    } else if (typeof val === 'string' && val.trim()) {
-      list = val.split('\n');
-    }
-    let cleaned = list
-      .map((c) => cleanSimilarityOutput(c, characters))
-      .filter((c) => c && c.split(/\s+/).length >= 3);
+  const rawClues = Array.isArray(p2.clues)
+    ? p2.clues
+    : (typeof p2.clues === 'string' ? [p2.clues] : []);
+  let clues = rawClues
+    .map((c) => cleanSimilarityOutput(c, characters))
+    .filter((c) => c && c.split(/\s+/).length >= 3);
 
-    if (cleaned.length === 0) {
-      if (candidates[fallbackIdx]) cleaned = [candidates[fallbackIdx]];
-      else if (candidates[0]) cleaned = [candidates[0]];
-      else cleaned = ["All of your characters share a mysterious connection."];
-    }
-
-    // Full coverage guarantee: if only 1 subset clue was provided, add a second candidate clue to cover remaining player(s)
-    if (cleaned.length === 1 && !/^all\b/i.test(cleaned[0])) {
-      const secondCandidate = candidates.find((c) => c !== cleaned[0] && !/^all\b/i.test(c)) || candidates.find((c) => c !== cleaned[0]);
-      if (secondCandidate) {
-        cleaned.push(secondCandidate);
-      }
-    }
-
-    return cleaned.slice(0, maxClues);
+  if (clues.length === 0) {
+    clues = candidates.slice(0, maxClues);
   }
-
-  const l1 = parseClues(p2.level_1, 0);
-  const l2 = parseClues(p2.level_2, 1);
-  const l3 = parseClues(p2.level_3, candidates.length - 1);
+  // Full coverage guarantee: if only 1 subset clue, add another candidate clue
+  if (clues.length === 1 && !/^all\b/i.test(clues[0])) {
+    const second = candidates.find((c) => c !== clues[0] && !/^all\b/i.test(c)) || candidates.find((c) => c !== clues[0]);
+    if (second) clues.push(second);
+  }
+  clues = clues.slice(0, maxClues);
 
   return {
     known: true,
-    levels: {
-      1: l1,
-      2: l2,
-      3: l3,
-    },
+    clues,
     provider: `gemini 2-stage (${stage2.modelUsed})`,
   };
 }
@@ -2208,7 +2185,7 @@ Write 15 numbered candidate clues (4-8 words each):`;
 
   if (/UNKNOWN\s*:\s*true/i.test(raw1)) {
     const msg = "I don't have enough verified info on these characters to find a connection.";
-    return { known: false, levels: { 1: [msg], 2: [msg], 3: [msg] }, provider: `ollama (${SMART_MODEL})` };
+    return { known: false, clues: [msg], provider: `ollama (${SMART_MODEL})` };
   }
 
   const candidateLines = raw1
@@ -2219,18 +2196,14 @@ Write 15 numbered candidate clues (4-8 words each):`;
 
   // STAGE 2: Ollama Judge AI
   const stage2Sys = `You are the Judge AI for a multiplayer Guess Who game with ${characters.length} players (Character 1 through Character ${characters.length}).
-Review the candidate clues below. Select clues for:
-- LVL 1 (Obscure): hardest difficulty, subtle trait
-- LVL 2 (Regular): medium difficulty, balanced trait
-- LVL 3 (Obvious): easiest difficulty, obvious trait
+Review the candidate clues below and select the ABSOLUTE BEST set of clues for these characters.
 
 CRITICAL MANDATORY RULE: AT LEAST ONE HINT CONNECTED TO EACH PLAYER'S CHARACTER!
 Every player's character (Character 1 through Character ${characters.length}) MUST be connected to at least one hint:
 - If a clue starts with "All of your characters...", 1 clue covers everyone.
 - Otherwise, output 2 to ${maxClues} complementary clues (e.g. "Two of your characters..." and "One of your characters...", or "Three of your characters..." and "Two of your characters...") so that EVERY player's character is included in at least one hint. NEVER leave any player's character out with 0 hints!
 
-Output up to ${maxClues} clues per level.
-Prefix each line with "LVL 1:", "LVL 2:", or "LVL 3:".`;
+Output 1 to ${maxClues} best clue lines, one per line, with NO numbering or prefixes.`;
 
   const stage2User = `Candidate Clues:\n${(candidateLines.length ? candidateLines : [raw1]).map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\nOutput the chosen clues:`;
 
@@ -2240,7 +2213,7 @@ Prefix each line with "LVL 1:", "LVL 2:", or "LVL 3:".`;
     body: JSON.stringify({
       model: SMART_MODEL,
       stream: false,
-      options: { num_ctx: 2048, temperature: 0.1, repeat_penalty: 1.15, num_predict: 200 },
+      options: { num_ctx: 2048, temperature: 0.1, repeat_penalty: 1.15, num_predict: 160 },
       messages: [
         { role: 'system', content: stage2Sys },
         { role: 'user', content: stage2User },
@@ -2256,44 +2229,25 @@ Prefix each line with "LVL 1:", "LVL 2:", or "LVL 3:".`;
   const data2 = await res2.json();
   const raw2 = data2?.message?.content || '';
 
-  const l1 = [];
-  const l2 = [];
-  const l3 = [];
+  let chosenLines = raw2
+    .split('\n')
+    .map((line) => line.replace(/^(\*?\*?LVL\s*\d+\*?\*?\s*:?|[-*•\d.)\s]+)/i, '').trim())
+    .map((line) => cleanSimilarityOutput(line, characters))
+    .filter((line) => line && line.split(/\s+/).length >= 3);
 
-  raw2.split('\n').forEach((line) => {
-    const m = line.match(/^LVL\s*([123])\s*:\s*(.*)/i);
-    if (m) {
-      const lvl = m[1];
-      const cleaned = cleanSimilarityOutput(m[2], characters);
-      if (cleaned) {
-        if (lvl === '1') l1.push(cleaned);
-        else if (lvl === '2') l2.push(cleaned);
-        else if (lvl === '3') l3.push(cleaned);
-      }
-    }
-  });
-
-  function ensureOllamaCoverage(chosen, fallbackIdx) {
-    let list = chosen.slice(0, maxClues);
-    if (list.length === 0) {
-      const fb = candidateLines[fallbackIdx] || candidateLines[0];
-      list = fb ? [fb] : [];
-    }
-    // Full coverage guarantee: if only 1 subset clue, include a second clue
-    if (list.length === 1 && !/^all\b/i.test(list[0])) {
-      const second = candidateLines.find((c) => c !== list[0] && !/^all\b/i.test(c)) || candidateLines.find((c) => c !== list[0]);
-      if (second) list.push(second);
-    }
-    return list.slice(0, maxClues);
+  if (chosenLines.length === 0) {
+    chosenLines = candidateLines.slice(0, maxClues);
   }
+  // Full coverage guarantee: if only 1 subset clue, add another candidate clue
+  if (chosenLines.length === 1 && !/^all\b/i.test(chosenLines[0])) {
+    const second = candidateLines.find((c) => c !== chosenLines[0] && !/^all\b/i.test(c)) || candidateLines.find((c) => c !== chosenLines[0]);
+    if (second) chosenLines.push(second);
+  }
+  chosenLines = chosenLines.slice(0, maxClues);
 
   return {
     known: true,
-    levels: {
-      1: ensureOllamaCoverage(l1, 0),
-      2: ensureOllamaCoverage(l2, 1),
-      3: ensureOllamaCoverage(l3, candidateLines.length - 1),
-    },
+    clues: chosenLines,
     provider: `ollama 2-stage (${SMART_MODEL})`,
   };
 }
@@ -2322,8 +2276,6 @@ app.post('/api/similarity', async (req, res) => {
         return res.json({
           similarity: msg,
           clues: [msg],
-          levels: { 1: [msg], 2: [msg], 3: [msg] },
-          level: revealLevel,
           unknownCharacter: true,
         });
       }
@@ -2345,19 +2297,14 @@ app.post('/api/similarity', async (req, res) => {
         result = await generateMultiplayerSimilarityWithOllama(charList, avoidCluesText);
       }
 
-      const parsedLevels = result.levels;
-      const defaultClue = ["I don't have enough verified info to find a connection."];
-      if (!parsedLevels[1] || parsedLevels[1].length === 0) parsedLevels[1] = parsedLevels[2] || defaultClue;
-      if (!parsedLevels[2] || parsedLevels[2].length === 0) parsedLevels[2] = parsedLevels[1] || defaultClue;
-      if (!parsedLevels[3] || parsedLevels[3].length === 0) parsedLevels[3] = parsedLevels[2] || defaultClue;
-
-      const currentClues = parsedLevels[revealLevel] || parsedLevels[2] || defaultClue;
+      const currentClues = result.clues && result.clues.length > 0
+        ? result.clues
+        : ["All of your characters share a mysterious connection."];
 
       return res.json({
         similarity: currentClues.join(' '),
         clues: currentClues,
-        levels: parsedLevels,
-        level: revealLevel,
+        levels: { 1: currentClues, 2: currentClues, 3: currentClues },
         model: result.provider,
       });
     }

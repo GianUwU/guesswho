@@ -23,11 +23,11 @@ Live: **[https://guesswho.gian.ink](https://guesswho.gian.ink)**
 
 ### 🎉 2. 3+ Player Party Mode
 - **Unlimited Group Size ($3+$ Players)**: Players secretly input their characters one by one. Once at least 3 players are ready, the group can launch the game or keep adding more players.
-- **Quantified Commonality & Subset Matching**:
-  - The AI searches for universal commonalities across all characters (`"All of your characters..."`).
-  - If a single universal trait does not connect everyone, it intelligently identifies subset commonalities (`"Two of your characters wear white shirts"`, `"Three of your characters live underground"`, `"One of your characters is a wizard"`), producing up to $\lfloor N / 2 \rfloor$ clues.
+- **Full Player Coverage Guarantee**: Every player's character is guaranteed to have at least one hint connected to them!
+- **Absolute Best Clues**: Instead of difficulty levels, the AI crafts the single best combination of hints for the chosen group:
+  - Universal commonalities (`"All of your characters..."`) if one applies to everyone.
+  - Or complementary subset commonalities (`"Two of your characters wear white shirts"`, `"Three of your characters live underground"`, `"One of your characters is a wizard"`).
   - Clues remain strictly in-universe and never reveal player numbers or character names.
-- **Three Guessability Levels**: Obscure (Level 1), Regular (Level 2), and Obvious (Level 3).
 - **Group Fact-Checker**: Any player can query the AI about any player's character without spoilers.
 - **Party Reveal Grid**: Individual reveal cards for each player plus an all-at-once "Reveal All" toggle.
 
