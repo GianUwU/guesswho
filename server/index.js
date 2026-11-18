@@ -1806,35 +1806,36 @@ ${c2.description ? `Background Context: ${c2.description.slice(0, 1000)}` : ''}`
     .map((c) => cleanSimilarityOutput(c, c1, c2))
     .filter((c) => c && c.split(/\s+/).length >= 3);
 
-  // STAGE 2: Judge AI evaluates difficulty and strictly assigns Level 1 (Hardest), Level 2 (Medium), Level 3 (Easiest Giveaway)
+  // STAGE 2: Judge AI evaluates difficulty: Level 1 (Obscure), Level 2 (Regular), Level 3 (Obvious)
   const judgeSysPrompt = `You are the Judge AI for a two-player Guess Who character game.
 Review the candidate clues below for Character 1 and Character 2.
 
 CRITICAL JUDGING & DIFFICULTY RULES:
 1. STRICT DUAL-CHARACTER FACT-CHECK:
    - Verify that the clue is 100% true for BOTH Character 1 AND Character 2!
-   - If a place name, origin, or attribute only applies to ONE character (e.g. Dipper is from California, not Texas; only Sandy is from Texas), REJECT IT IMMEDIATELY! Only allow traits true for both (e.g. "Both left their home states." NOT "Both moved from Texas.").
+   - If a place name, origin, or attribute only applies to ONE character (e.g. Dipper is from California, not Texas; only Sandy is from Texas), REJECT IT IMMEDIATELY! Only allow traits true for both.
    - Reject any clue that is false, hallucinated, or a weak/superficial stretch (e.g. reject "Both wear heavy footwear", "Both study weird biology").
    - Reject any out-of-universe meta clues (never mention cartoons, anime, media, fiction, series, or video games).
-   - Reject any universe-specific negatives (e.g. reject "Neither can bend elements" or "Neither has superpowers" if one character is from a non-superpower world).${avoidCluesText ? `\n   - ${avoidCluesText.trim()}` : ''}
+   - Reject any universe-specific negatives.${avoidCluesText ? `\n   - ${avoidCluesText.trim()}` : ''}
 2. ENFORCE ONE SINGLE TRAIT (4-6 WORDS):
    - Rewrite any clue that stacks multiple traits so it states ONLY ONE single fact (e.g. "Both are brilliant strategists." NOT "Both are intelligent young male masterminds.").
-3. STRICT GUESSABILITY / DIFFICULTY CALIBRATION (ANTI-GIVEAWAY RULE):
-   - "level_1" (Hardest to guess / Obscure): A subtle, surprising, or obscure background/family detail, twin/sibling fact, minor everyday habit, or obscure personality trait that is 100% canon for both, but very hard to guess from this clue alone (e.g. "Both have a twin sibling." or "Both left their home state." or "Both have biological sons.").
-   - "level_2" (Medium difficulty): Narrows down their archetype, job, general setting, research/documentation, or general mission, but still leaves MANY different characters possible (e.g. "Both document strange local anomalies." or "Both possess a high scientific intellect.").
-   - "level_3" (Easiest to guess / Dead giveaway): The MOST ICONIC, distinctive signature trait, recognizable signature headgear/suit, iconic physical form, or trademark power that immediately makes a player recognize these exact characters (e.g. "Both wear signature protective headgear." or "Both are alien survivors of destroyed planets.").
+3. STRICT DIFFICULTY CALIBRATION (Obscure, Regular, Obvious):
+   The 3 levels represent PURELY GUESSABILITY DIFFICULTY and are NOT linked to any specific kind or category of tip:
+   - "level_1" (Obscure): Hardest difficulty. An obscure, subtle commonality that is 100% canonically true for both, but very tough to deduce who the characters are from this clue alone.
+   - "level_2" (Regular): Medium / standard difficulty. A balanced commonality that is a fair challenge—neither obscure nor an immediate dead giveaway.
+   - "level_3" (Obvious): Easiest difficulty. An obvious, recognizable connection that points strongly toward who these characters are.
 
 CRITICAL ANTI-GIVEAWAY RULE:
-- NEVER place an obvious giveaway or unique signature trait into level_1 or level_2!
-- If a clue names a unique power, iconic weapon, specific animal species, trademark color scheme, or dead-giveaway trope that identifies the character right away, it MUST ONLY be placed in level_3, never in level_1 or level_2.
-- Level 1 MUST be noticeably harder to guess than Level 2.
-- Level 3 MUST be the easiest giveaway clue.
+- NEVER link levels to specific tip categories (any level can draw from habits, powers, appearance, background, relationships, origin, etc.). The levels represent purely how Obscure, Regular, or Obvious the connection is!
+- NEVER place an obvious giveaway into level_1 (Obscure) or level_2 (Regular)!
+- Level 1 (Obscure) MUST be noticeably harder to deduce than Level 2 (Regular).
+- Level 3 (Obvious) MUST be the easiest connection.
 
 Return ONLY valid JSON:
 {
-  "level_1": "Both/Neither [hardest to guess, subtle family/background]",
-  "level_2": "Both/Neither [medium difficulty, intellect/archetype]",
-  "level_3": "Both/Neither [most obvious giveaway, signature trait/appearance]"
+  "level_1": "Both/Neither [Obscure - hardest to deduce]",
+  "level_2": "Both/Neither [Regular - medium difficulty]",
+  "level_3": "Both/Neither [Obvious - easiest to deduce]"
 }`;
 
   const judgeUserText = `Character 1: ${c1.name} (${c1.series})
@@ -1915,20 +1916,21 @@ Write 15 numbered candidate clues (4-6 words each):`;
     .map((line) => cleanSimilarityOutput(line, c1, c2))
     .filter((line) => /^(Both|Neither)\b/i.test(line) && line.split(/\s+/).length >= 3);
 
-  // STAGE 2: Ollama Judge AI selects 1 for LVL 1, LVL 2, and LVL 3 with strict difficulty progression
+  // STAGE 2: Ollama Judge AI selects 1 for LVL 1 (Obscure), LVL 2 (Regular), and LVL 3 (Obvious)
   const stage2Sys = `You are the Judge AI for a Guess Who game.
 Review the candidate clues below for ${c1.name} (${c1.series}) and ${c2.name} (${c2.series}).
 1. STRICT DUAL-CHARACTER FACT-CHECK:
-   - Verify the clue is 100% true for BOTH Character 1 AND Character 2. Reject if a specific place or name only belongs to one (e.g. Dipper is from California, not Texas).
-   - Reject any candidate that is false or a weak/superficial stretch (e.g. reject "Both wear heavy footwear").
+   - Verify the clue is 100% true for BOTH Character 1 AND Character 2. Reject if a specific place or name only belongs to one.
+   - Reject any candidate that is false or a weak/superficial stretch.
 2. Reject any meta clues mentioning cartoons, anime, media, fiction, or video games.
 3. Reject universe-specific power negatives.${avoidCluesText ? `\n4. ${avoidCluesText.trim()}` : ''}
 4. Ensure each chosen clue states ONLY ONE single trait in 4 to 6 words starting with Both or Neither.
-5. Select 3 different clues with STRICT GUESSABILITY PROGRESSION & ANTI-GIVEAWAY RULE:
-   - Line 1: Hardest to guess / Obscure (subtle family/twin fact, home state relocation, or obscure canon quirk). NEVER an obvious giveaway!
-   - Line 2: Medium difficulty (broad archetype, intellect, documenting anomalies, or general team dynamic). Must NOT contain dead giveaway traits.
-   - Line 3: Easiest giveaway clue (iconic signature headgear, famous visual trait, or unmistakable trademark power).
-   - CRITICAL ANTI-GIVEAWAY: Never put an obvious signature giveaway in Line 1 or Line 2!
+5. Select 3 different clues with STRICT DIFFICULTY CALIBRATION (Obscure, Regular, Obvious):
+   The levels are purely difficulty and are NOT linked to any specific tip category:
+   - Line 1: Obscure (hardest difficulty to deduce, subtle connection).
+   - Line 2: Regular (medium / standard difficulty, balanced clue).
+   - Line 3: Obvious (easiest difficulty, obvious and easily recognizable connection).
+   CRITICAL ANTI-GIVEAWAY: Never put an obvious connection in Line 1 or Line 2!
 
 Output EXACTLY 3 lines in order from hardest to easiest giveaway, with NO prefixes, no numbering.`;
 

@@ -12,10 +12,11 @@ Live: **[https://guesswho.gian.ink](https://guesswho.gian.ink)**
 
 ### 👥 1. Two-Player Deep-Lore Similarity Mode
 - **Dual Secret Selection**: Both players secretly lock in a character from anime, gaming, live action, comics, or animation.
-- **AI Similarity Engine**: Analyzes both characters and extracts a common trait, origin connection, or obscure thematic similarity across three distinct difficulty tiers:
-  - **Level 1 (Easy / Broad)**: Obvious archetypes, broad roles, or visual/thematic cues.
-  - **Level 2 (Medium / Balanced)**: Personality quirks, backstory parallels, power systems, or shared conflicts.
-  - **Level 3 (Hard / Deep Lore)**: Subtle voice actor trivia, deep lore connections, obscure origin details, or nuanced psychological parallels.
+- **AI Similarity Engine**: Analyzes both characters and extracts a common trait, connection, or shared lore across three distinct difficulty levels:
+  - **Level 1 (Obscure)**: Hardest difficulty—a subtle, obscure connection that is difficult to deduce from the clue alone.
+  - **Level 2 (Regular)**: Medium / standard difficulty—a balanced connection offering a fair, fun challenge.
+  - **Level 3 (Obvious)**: Easiest difficulty—an obvious, easily recognizable giveaway connection.
+  *(Note: Levels represent purely guessability difficulty and are not tied to any specific tip category—any level can draw from any aspect of lore, habits, powers, appearance, relationships, or background).*
 - **Fact-Checker / Helper Bot**: If players are unsure about a specific fact about either character during the game, they can ask the AI without revealing the character's identity.
 - **Independent Reveal Wings**: Each player's identity card is independently hidden and revealable on the left and right wings.
 - **Tip Quality Reporting**: Players can flag weird, inaccurate, or low-quality AI clues for review.

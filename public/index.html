@@ -443,7 +443,7 @@
       <!-- Reveal Level Selector (LVL 1 Obscure -> LVL 3 Obvious) -->
       <div class="level-bar" id="level-bar">
         <button type="button" class="level-btn" data-level="1">LVL 1 • Obscure</button>
-        <button type="button" class="level-btn active" data-level="2">LVL 2 • Medium</button>
+        <button type="button" class="level-btn active" data-level="2">LVL 2 • Regular</button>
         <button type="button" class="level-btn" data-level="3">LVL 3 • Obvious</button>
       </div>
 
@@ -492,7 +492,7 @@
       <!-- CENTER COLUMN: Similarity Clue + Fact Checker Question Box -->
       <div class="card similarity-box center-col">
         <div id="result-level-label" style="font-size:0.82rem; color:#888; text-transform:uppercase; letter-spacing:1px;">
-          What They Have In Common (LVL 2 • Medium)
+          What They Have In Common (LVL 2 • Regular)
         </div>
         <div id="similarity-output" class="similarity-text">Finding similarities<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span></div>
         <div style="display:flex; justify-content:center; margin-bottom:12px;">
@@ -730,7 +730,7 @@
       }, 3200);
     }
 
-    const levelNames = { 1: 'LVL 1 • Obscure', 2: 'LVL 2 • Medium', 3: 'LVL 3 • Obvious' };
+    const levelNames = { 1: 'LVL 1 • Obscure', 2: 'LVL 2 • Regular', 3: 'LVL 3 • Obvious' };
 
     levelButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
