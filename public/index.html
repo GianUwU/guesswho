@@ -512,6 +512,227 @@
     }
     .hidden { display: none !important; }
     .status { font-size: 0.85rem; color: #aaa; margin: 6px 0; }
+
+    /* ==================================================================== */
+    /* AUTHENTIK ACCOUNT BAR & LEADERBOARD STYLES                          */
+    /* ==================================================================== */
+    .auth-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      background: #181818;
+      border: 1px solid #2e2e2e;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .auth-user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      min-width: 0;
+    }
+    .auth-pfp {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      object-position: top center;
+      border: 2px solid #ea580c;
+      background: #222;
+      flex-shrink: 0;
+    }
+    .auth-meta {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .auth-name-title {
+      font-weight: 700;
+      font-size: 0.98rem;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .auth-stats-row {
+      font-size: 0.8rem;
+      color: #aaa;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 2px;
+    }
+    .auth-pill {
+      background: #27170a;
+      color: #fb923c;
+      border: 1px solid rgba(234, 88, 12, 0.35);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+    .auth-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Leaderboard Table Styles */
+    .lb-table-wrap {
+      overflow-x: auto;
+      border-radius: 6px;
+      border: 1px solid #2e2e2e;
+      background: #141414;
+    }
+    .lb-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+      text-align: left;
+    }
+    .lb-table th {
+      background: #1c1c1c;
+      color: #888;
+      padding: 10px 12px;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #333;
+    }
+    .lb-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #222;
+      vertical-align: middle;
+    }
+    .lb-row-clickable {
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .lb-row-clickable:hover {
+      background: #222;
+    }
+    .lb-row-me {
+      background: rgba(234, 88, 12, 0.13) !important;
+      border-left: 3px solid #ea580c;
+    }
+    .lb-pfp-thumb {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      object-fit: cover;
+      object-position: top center;
+      background: #222;
+      border: 1px solid #444;
+      flex-shrink: 0;
+    }
+    .lb-player-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .lb-player-info {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .lb-username {
+      font-weight: 600;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lb-char-name {
+      font-size: 0.78rem;
+      color: #f97316;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .lb-rank-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      font-weight: 700;
+      font-size: 0.85rem;
+    }
+    .lb-rank-1 { background: #eab308; color: #111; }
+    .lb-rank-2 { background: #94a3b8; color: #111; }
+    .lb-rank-3 { background: #d97706; color: #111; }
+    .lb-rank-normal { color: #888; }
+    .lb-my-placement {
+      background: #23160c;
+      border: 1px solid #ea580c;
+      border-radius: 6px;
+      padding: 10px 14px;
+      margin-top: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    @media (max-width: 540px) {
+      .lb-hide-mobile {
+        display: none !important;
+      }
+      .lb-table td, .lb-table th {
+        padding: 8px 8px;
+        font-size: 0.82rem;
+      }
+    }
+
+    /* Profile Card Modal Styles */
+    .profile-card-modal {
+      max-width: 440px;
+      width: 100%;
+      text-align: center;
+    }
+    .profile-modal-img {
+      width: 100%;
+      max-height: 250px;
+      object-fit: cover;
+      object-position: top center;
+      border-radius: 8px;
+      border: 2px solid #ea580c;
+      background: #222;
+      margin-bottom: 12px;
+      display: block;
+    }
+    .profile-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin: 14px 0;
+      text-align: left;
+    }
+    .profile-stat-item {
+      background: #141414;
+      border: 1px solid #333;
+      border-radius: 6px;
+      padding: 8px 12px;
+    }
+    .profile-stat-label {
+      font-size: 0.72rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .profile-stat-val {
+      font-size: 1.12rem;
+      font-weight: 700;
+      color: #fff;
+      margin-top: 2px;
+    }
   </style>
 </head>
 <body>
@@ -519,6 +740,41 @@
     <h1>Guess Who</h1>
     <p class="sub">Multiplayer Similarities or Solo 20-Questions Mode.</p>
 
+
+    <!-- Authentik User Account Bar -->
+    <div id="auth-bar-container" style="margin-bottom:14px;">
+      <!-- Logged-in State -->
+      <div id="auth-logged-in-bar" class="auth-bar hidden">
+        <div id="auth-profile-trigger" class="auth-user-info" title="Click to view your profile">
+          <img id="auth-user-pfp" class="auth-pfp" src="" alt="Avatar" />
+          <div class="auth-meta">
+            <div id="auth-user-heading" class="auth-name-title">Username</div>
+            <div class="auth-stats-row">
+              <span id="auth-stat-wl-pill" class="auth-pill">W-L: 0 - 0</span>
+              <span id="auth-stat-rank-pill" class="auth-pill" style="background:#1d2818; color:#86efac; border-color:rgba(34,197,94,0.35);">Rank: #1</span>
+            </div>
+          </div>
+        </div>
+        <div class="auth-actions">
+          <button id="auth-pick-char-btn" type="button" class="secondary" style="font-size:0.82rem; padding:6px 11px;">
+            🎭 Pick Character
+          </button>
+          <a href="/auth/logout" style="color:#888; font-size:0.82rem; text-decoration:none; padding:6px 8px;">Log Out</a>
+        </div>
+      </div>
+
+      <!-- Logged-out State -->
+      <div id="auth-logged-out-bar" class="auth-bar" style="justify-content:space-between;">
+        <div style="font-size:0.84rem; color:#aaa; display:flex; align-items:center; gap:8px;">
+          <span>👤 Play anonymously or connect your account to record stats & claim a unique character.</span>
+        </div>
+        <a href="/auth/login" style="text-decoration:none;">
+          <button type="button" style="font-size:0.84rem; padding:7px 13px; display:inline-flex; align-items:center; gap:6px;">
+            🔑 Connect with Authentik
+          </button>
+        </a>
+      </div>
+    </div>
     <!-- Mode Switcher -->
     <div class="mode-bar">
       <button type="button" class="mode-btn active" id="mode-main-btn">👥 Main Mode</button>
@@ -682,9 +938,54 @@
       <div id="solo-qa-log" class="qa-log hidden"></div>
 
       <div class="row" style="margin-top:12px;">
-        <button id="solo-share-btn" class="secondary" type="button" style="display:none; flex:1;">📤 Share Chat</button>
-        <button id="solo-giveup-btn" class="secondary" type="button" style="flex:1;">Give Up / Reveal</button>
-        <button id="solo-new-btn" type="button" style="flex:1;">🎲 New Secret Character</button>
+        <button id="solo-share-btn" class="secondary" type="button" style="display:none; flex:1;">Share</button>
+        <button id="solo-giveup-btn" class="secondary" type="button" style="flex:1;">Give Up</button>
+        <button id="solo-new-btn" type="button" style="flex:1;">New Game</button>
+      </div>
+    </div>
+
+    <!-- ==================================================================== -->
+    <!-- SOLO LEADERBOARD SECTION (Top 10 players by W/L ratio)                -->
+    <!-- ==================================================================== -->
+    <div class="card" id="solo-leaderboard-card" style="margin-top:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+        <div>
+          <h3 style="margin:0; font-size:1.1rem; display:flex; align-items:center; gap:6px;">
+            🏆 Solo Leaderboard (Top 10)
+          </h3>
+          <div style="font-size:0.75rem; color:#888; margin-top:2px;">
+            Ranked by W/L Ratio • 5+ completed games required to qualify
+          </div>
+        </div>
+        <button id="lb-refresh-btn" class="secondary" type="button" style="padding:5px 10px; font-size:0.8rem;">
+          🔄 Refresh
+        </button>
+      </div>
+
+      <div class="lb-table-wrap">
+        <table class="lb-table">
+          <thead>
+            <tr>
+              <th style="width:44px; text-align:center;">#</th>
+              <th>Player</th>
+              <th style="text-align:center;">W - L</th>
+              <th style="text-align:center;">Win %</th>
+              <th class="lb-hide-mobile" style="text-align:center;">Avg Guesses</th>
+            </tr>
+          </thead>
+          <tbody id="lb-tbody">
+            <!-- Dynamically populated -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="lb-empty" class="status hidden" style="text-align:center; padding:18px 0; color:#888;">
+        No players have completed 5 games yet. Be the first to rank on the leaderboard!
+      </div>
+
+      <!-- Pinned Current User Placement -->
+      <div id="lb-my-placement" class="lb-my-placement hidden">
+        <!-- Rendered by JS -->
       </div>
     </div>
   </div>
@@ -703,6 +1004,99 @@
       <div style="display:flex; gap:8px; justify-content:flex-end;">
         <button type="button" id="report-cancel-btn" class="secondary">Cancel</button>
         <button type="button" id="report-submit-btn">Submit Report</button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- Profile Card Modal -->
+  <div id="profile-modal" class="modal-overlay hidden">
+    <div class="modal-card profile-card-modal">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+        <div style="text-align:left; min-width:0; flex:1;">
+          <h3 id="profile-modal-title" style="margin:0 0 3px 0; font-size:1.2rem; color:#fff; word-break:break-word;">
+            User as "Character"
+          </h3>
+          <div id="profile-modal-series" style="color:#aaa; font-size:0.82rem;">Series Origin</div>
+        </div>
+        <button type="button" id="profile-modal-close" class="modal-close" style="margin-left:8px;">&times;</button>
+      </div>
+
+      <img id="profile-modal-img" class="profile-modal-img" src="" alt="Player character" />
+
+      <div class="profile-stats-grid">
+        <div class="profile-stat-item">
+          <div class="profile-stat-label">W / L Record</div>
+          <div id="profile-stat-wl" class="profile-stat-val">0 - 0</div>
+        </div>
+        <div class="profile-stat-item">
+          <div class="profile-stat-label">Win Rate</div>
+          <div id="profile-stat-winrate" class="profile-stat-val" style="color:#4ade80;">0%</div>
+        </div>
+        <div class="profile-stat-item">
+          <div class="profile-stat-label">Total Rounds</div>
+          <div id="profile-stat-rounds" class="profile-stat-val">0</div>
+        </div>
+        <div class="profile-stat-item">
+          <div class="profile-stat-label">Avg Guesses / Win</div>
+          <div id="profile-stat-guesses" class="profile-stat-val">-</div>
+        </div>
+        <div class="profile-stat-item">
+          <div class="profile-stat-label">Best Win</div>
+          <div id="profile-stat-best" class="profile-stat-val">-</div>
+        </div>
+        <div class="profile-stat-item">
+          <div class="profile-stat-label">Leaderboard Rank</div>
+          <div id="profile-stat-rank" class="profile-stat-val">Unranked</div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-top:14px;">
+        <button type="button" id="profile-change-char-btn" class="secondary hidden" style="font-size:0.85rem; padding:8px 12px;">
+          🎭 Change Character
+        </button>
+        <button type="button" id="profile-close-btn" class="secondary" style="margin-left:auto; font-size:0.85rem; padding:8px 16px;">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Claim Character Modal -->
+  <div id="claim-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="max-width:480px; width:100%;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <h3 style="margin:0; font-size:1.1rem; display:flex; align-items:center; gap:6px;">
+          🎭 Choose Your Character
+        </h3>
+        <button type="button" id="claim-close-btn" class="modal-close">&times;</button>
+      </div>
+      <div style="font-size:0.82rem; color:#888; margin-bottom:12px;">
+        Pick any pop culture, anime, game, or comic character. <strong>Each character can only be chosen by one user!</strong>
+      </div>
+
+      <div class="row">
+        <input type="text" id="claim-search-input" placeholder="Search character name (e.g. Groot, Batman, Goku)..." autocomplete="off" />
+      </div>
+      <div id="claim-status" class="status hidden"></div>
+      <div id="claim-dropdown" class="dropdown hidden" style="max-height:220px;"></div>
+
+      <!-- Preview selected character -->
+      <div id="claim-preview-box" class="preview hidden" style="flex-direction:column; align-items:flex-start; gap:8px;">
+        <div style="display:flex; gap:12px; align-items:center; width:100%;">
+          <img id="claim-preview-img" src="" alt="Selected character" style="width:70px; height:70px; border-radius:6px; object-fit:cover;" />
+          <div style="min-width:0; flex:1;">
+            <div id="claim-preview-name" style="font-weight:700; font-size:1.05rem;"></div>
+            <div id="claim-preview-series" style="font-size:0.85rem; color:#888;"></div>
+            <div id="claim-availability-badge" style="font-size:0.75rem; margin-top:4px;"></div>
+          </div>
+        </div>
+        <div id="claim-preview-desc" style="font-size:0.78rem; color:#bbb; line-height:1.4; max-height:60px; overflow:hidden;"></div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+        <button type="button" id="claim-cancel-btn" class="secondary">Cancel</button>
+        <button type="button" id="claim-submit-btn" disabled>Confirm Character</button>
       </div>
     </div>
   </div>
@@ -1594,6 +1988,7 @@
         if (data.guessed && data.character) {
           soloStatus.textContent = `🎉 You got it in ${soloQuestionCount} question(s)!`;
           showSoloCharacterReveal(data.character, '🎉 You Guessed It!', '#4ade80');
+          checkAuthStatus();
         } else {
           soloStatus.textContent = 'Ask another Yes/No question or guess the character.';
           soloInput.disabled = false;
@@ -1663,12 +2058,13 @@
         });
         const data = await res.json();
         if (data.character) {
-          soloStatus.textContent = 'Character revealed!';
-          showSoloCharacterReveal(data.character, 'Secret Character Revealed', '#facc15');
-          if (soloQuestionCount > 0) {
-            soloShareBtn.style.display = 'inline-flex';
-          }
-        }
+    soloStatus.textContent = 'Character revealed!';
+    showSoloCharacterReveal(data.character, 'Secret Character Revealed', '#facc15');
+    if (soloQuestionCount > 0) {
+      soloShareBtn.style.display = 'inline-flex';
+    }
+    checkAuthStatus();
+  }
       } catch (err) {
         soloStatus.textContent = 'Could not reveal character.';
       }
@@ -1779,6 +2175,432 @@
     if (shareParam) {
       loadSharedSoloGame(shareParam);
     }
+
+    // ========================================================================
+    // AUTHENTIK ACCOUNTS, LEADERBOARD & PROFILE MODAL LOGIC
+    // ========================================================================
+    const defaultPfpSvg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 24 24" fill="%23666"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>';
+
+    const authLoggedInBar = document.getElementById('auth-logged-in-bar');
+    const authLoggedOutBar = document.getElementById('auth-logged-out-bar');
+    const authProfileTrigger = document.getElementById('auth-profile-trigger');
+    const authUserPfp = document.getElementById('auth-user-pfp');
+    const authUserHeading = document.getElementById('auth-user-heading');
+    const authStatWlPill = document.getElementById('auth-stat-wl-pill');
+    const authStatRankPill = document.getElementById('auth-stat-rank-pill');
+    const authPickCharBtn = document.getElementById('auth-pick-char-btn');
+
+    const lbRefreshBtn = document.getElementById('lb-refresh-btn');
+    const lbTbody = document.getElementById('lb-tbody');
+    const lbEmpty = document.getElementById('lb-empty');
+    const lbMyPlacement = document.getElementById('lb-my-placement');
+
+    const profileModal = document.getElementById('profile-modal');
+    const profileModalClose = document.getElementById('profile-modal-close');
+    const profileCloseBtn = document.getElementById('profile-close-btn');
+    const profileChangeCharBtn = document.getElementById('profile-change-char-btn');
+    const profileModalTitle = document.getElementById('profile-modal-title');
+    const profileModalSeries = document.getElementById('profile-modal-series');
+    const profileModalImg = document.getElementById('profile-modal-img');
+    const profileStatWl = document.getElementById('profile-stat-wl');
+    const profileStatWinrate = document.getElementById('profile-stat-winrate');
+    const profileStatRounds = document.getElementById('profile-stat-rounds');
+    const profileStatGuesses = document.getElementById('profile-stat-guesses');
+    const profileStatBest = document.getElementById('profile-stat-best');
+    const profileStatRank = document.getElementById('profile-stat-rank');
+
+    const claimModal = document.getElementById('claim-modal');
+    const claimCloseBtn = document.getElementById('claim-close-btn');
+    const claimCancelBtn = document.getElementById('claim-cancel-btn');
+    const claimSubmitBtn = document.getElementById('claim-submit-btn');
+    const claimSearchInput = document.getElementById('claim-search-input');
+    const claimStatus = document.getElementById('claim-status');
+    const claimDropdown = document.getElementById('claim-dropdown');
+    const claimPreviewBox = document.getElementById('claim-preview-box');
+    const claimPreviewImg = document.getElementById('claim-preview-img');
+    const claimPreviewName = document.getElementById('claim-preview-name');
+    const claimPreviewSeries = document.getElementById('claim-preview-series');
+    const claimPreviewDesc = document.getElementById('claim-preview-desc');
+    const claimAvailabilityBadge = document.getElementById('claim-availability-badge');
+
+    let currentAuthUser = null;
+    let claimedCharactersCache = {};
+    let selectedClaimChar = null;
+    let claimSearchTimeout = null;
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    async function checkAuthStatus() {
+      try {
+        const res = await fetch('/api/auth/me');
+        const data = await res.json();
+        if (data.loggedIn && data.user) {
+          currentAuthUser = data.user;
+          authLoggedOutBar.classList.add('hidden');
+          authLoggedInBar.classList.remove('hidden');
+
+          const char = currentAuthUser.character;
+          authUserPfp.src = (char && char.image) ? char.image : defaultPfpSvg;
+          authUserPfp.onerror = () => { authUserPfp.src = defaultPfpSvg; };
+
+          if (char && char.name) {
+            authUserHeading.textContent = `${currentAuthUser.username} as "${char.name}"`;
+          } else {
+            authUserHeading.textContent = `${currentAuthUser.username} (Pick Character)`;
+          }
+
+          authStatWlPill.textContent = `W-L: ${currentAuthUser.wins} - ${currentAuthUser.losses} (${currentAuthUser.winRate}%)`;
+          if (currentAuthUser.rank) {
+            authStatRankPill.textContent = `Rank: #${currentAuthUser.rank}`;
+            authStatRankPill.style.background = '#1d2818';
+            authStatRankPill.style.color = '#86efac';
+            authStatRankPill.style.borderColor = 'rgba(34,197,94,0.35)';
+          } else {
+            authStatRankPill.textContent = `Unranked (${currentAuthUser.rounds}/5)`;
+            authStatRankPill.style.background = '#27272a';
+            authStatRankPill.style.color = '#a1a1aa';
+            authStatRankPill.style.borderColor = 'rgba(255,255,255,0.1)';
+          }
+
+          authPickCharBtn.textContent = char ? '🎭 Change Character' : '🎭 Pick Character';
+        } else {
+          currentAuthUser = null;
+          authLoggedInBar.classList.add('hidden');
+          authLoggedOutBar.classList.remove('hidden');
+        }
+      } catch (err) {
+        console.warn('[Auth Check Error]', err);
+      }
+      loadLeaderboard();
+    }
+
+    async function loadLeaderboard() {
+      try {
+        const res = await fetch('/api/leaderboard');
+        const data = await res.json();
+        claimedCharactersCache = data.claimedCharacters || {};
+
+        const top10 = data.top10 || [];
+        lbTbody.innerHTML = '';
+
+        if (top10.length === 0) {
+          lbEmpty.classList.remove('hidden');
+        } else {
+          lbEmpty.classList.add('hidden');
+          top10.forEach((item) => {
+            const tr = document.createElement('tr');
+            tr.className = 'lb-row-clickable';
+            if (currentAuthUser && currentAuthUser.username.toLowerCase() === item.username.toLowerCase()) {
+              tr.classList.add('lb-row-me');
+            }
+
+            let rankBadge = `<span class="lb-rank-badge lb-rank-normal">#${item.rank}</span>`;
+            if (item.rank === 1) rankBadge = `<span class="lb-rank-badge lb-rank-1">🥇</span>`;
+            else if (item.rank === 2) rankBadge = `<span class="lb-rank-badge lb-rank-2">🥈</span>`;
+            else if (item.rank === 3) rankBadge = `<span class="lb-rank-badge lb-rank-3">🥉</span>`;
+
+            const charImg = (item.character && item.character.image) ? item.character.image : defaultPfpSvg;
+            const charSub = (item.character && item.character.name) ? `<span class="lb-char-name">as "${escapeHtml(item.character.name)}"</span>` : '';
+
+            tr.innerHTML = `
+              <td style="text-align:center;">${rankBadge}</td>
+              <td>
+                <div class="lb-player-cell">
+                  <img class="lb-pfp-thumb" src="${escapeHtml(charImg)}" onerror="this.src=defaultPfpSvg" alt="" />
+                  <div class="lb-player-info">
+                    <span class="lb-username">${escapeHtml(item.username)}</span>
+                    ${charSub}
+                  </div>
+                </div>
+              </td>
+              <td style="text-align:center; font-weight:600;">${item.wins} - ${item.losses}</td>
+              <td style="text-align:center; font-weight:700; color:#4ade80;">${item.winRate}%</td>
+              <td class="lb-hide-mobile" style="text-align:center; color:#ccc;">${item.avgGuesses > 0 ? item.avgGuesses : '-'}</td>
+            `;
+
+            tr.addEventListener('click', () => {
+              openProfileModal(item.username);
+            });
+
+            lbTbody.appendChild(tr);
+          });
+        }
+
+        // Pinned user placement box
+        const myPlacement = data.currentUserEntry || currentAuthUser;
+        if (myPlacement && myPlacement.username) {
+          lbMyPlacement.classList.remove('hidden');
+          const isRanked = Boolean(myPlacement.rank);
+          const rounds = Number(myPlacement.rounds) || 0;
+          const wins = Number(myPlacement.wins) || 0;
+          const losses = Number(myPlacement.losses) || 0;
+          const winRate = myPlacement.winRate || 0;
+          const avgG = myPlacement.avgGuesses > 0 ? myPlacement.avgGuesses : '-';
+
+          if (isRanked) {
+            lbMyPlacement.innerHTML = `
+              <div style="font-size:0.88rem;">
+                <strong>Your Placement: #${myPlacement.rank}</strong> of ${data.totalRanked} ranked players &bull;
+                Record: <strong>${wins}W - ${losses}L</strong> (<span style="color:#4ade80; font-weight:700;">${winRate}%</span>) &bull;
+                Avg Guesses: <strong>${avgG}</strong>
+              </div>
+              <button type="button" class="secondary" style="font-size:0.8rem; padding:4px 10px;" id="lb-view-my-profile-btn">
+                View Profile Card
+              </button>
+            `;
+          } else {
+            const needed = Math.max(0, 5 - rounds);
+            lbMyPlacement.innerHTML = `
+              <div style="font-size:0.86rem; color:#ddd;">
+                <strong>Your Placement: Unranked</strong> (${rounds}/5 games played &mdash; play <strong>${needed}</strong> more to qualify!) &bull;
+                Current Record: <strong>${wins}W - ${losses}L</strong>
+              </div>
+              <button type="button" class="secondary" style="font-size:0.8rem; padding:4px 10px;" id="lb-view-my-profile-btn">
+                View Profile Card
+              </button>
+            `;
+          }
+          const myBtn = document.getElementById('lb-view-my-profile-btn');
+          if (myBtn) {
+            myBtn.addEventListener('click', () => openProfileModal(myPlacement.username));
+          }
+        } else {
+          lbMyPlacement.classList.remove('hidden');
+          lbMyPlacement.innerHTML = `
+            <div style="font-size:0.85rem; color:#bbb;">
+              Connect your account to record stats and view your placement on the leaderboard!
+            </div>
+            <a href="/auth/login" style="text-decoration:none;">
+              <button type="button" style="font-size:0.8rem; padding:4px 12px;">Connect</button>
+            </a>
+          `;
+        }
+      } catch (err) {
+        console.warn('[Leaderboard Load Error]', err);
+      }
+    }
+
+    async function openProfileModal(username) {
+      try {
+        const res = await fetch(`/api/user/${encodeURIComponent(username)}`);
+        const data = await res.json();
+        if (!data.user) return;
+        const u = data.user;
+
+        const char = u.character;
+        if (char && char.name) {
+          profileModalTitle.textContent = `${u.username} as "${char.name}"`;
+          profileModalSeries.textContent = char.series || 'Custom Universe';
+          profileModalImg.src = char.image || placeholderImg;
+          profileModalImg.style.display = 'block';
+        } else {
+          profileModalTitle.textContent = `${u.username}`;
+          profileModalSeries.textContent = 'No character claimed yet';
+          profileModalImg.src = defaultPfpSvg;
+          profileModalImg.style.display = 'block';
+        }
+        profileModalImg.onerror = () => { profileModalImg.src = placeholderImg; };
+
+        profileStatWl.textContent = `${u.wins} - ${u.losses}`;
+        profileStatWinrate.textContent = `${u.winRate}%`;
+        profileStatRounds.textContent = `${u.rounds}`;
+        profileStatGuesses.textContent = u.avgGuesses > 0 ? `${u.avgGuesses}` : '-';
+        profileStatBest.textContent = u.bestWin ? `${u.bestWin} questions` : '-';
+        profileStatRank.textContent = u.rank ? `#${u.rank}` : `Unranked (${u.rounds}/5)`;
+
+        const isSelf = currentAuthUser && currentAuthUser.username.toLowerCase() === u.username.toLowerCase();
+        if (isSelf) {
+          profileChangeCharBtn.classList.remove('hidden');
+          profileChangeCharBtn.onclick = () => {
+            profileModal.classList.add('hidden');
+            openClaimModal();
+          };
+        } else {
+          profileChangeCharBtn.classList.add('hidden');
+        }
+
+        profileModal.classList.remove('hidden');
+      } catch (err) {
+        console.warn('[Profile Load Error]', err);
+      }
+    }
+
+    function openClaimModal() {
+      if (!currentAuthUser) {
+        window.location.href = '/auth/login';
+        return;
+      }
+      claimSearchInput.value = '';
+      claimStatus.classList.add('hidden');
+      claimDropdown.classList.add('hidden');
+      claimPreviewBox.classList.add('hidden');
+      claimSubmitBtn.disabled = true;
+      selectedClaimChar = null;
+      claimModal.classList.remove('hidden');
+      setTimeout(() => claimSearchInput.focus(), 50);
+    }
+
+    function selectClaimCandidate(char, isTakenByOther, takenInfo) {
+      claimDropdown.classList.add('hidden');
+      selectedClaimChar = char;
+      claimPreviewImg.src = char.image || placeholderImg;
+      claimPreviewName.textContent = char.name;
+      claimPreviewSeries.textContent = char.series || 'Pop Culture';
+      claimPreviewDesc.textContent = char.description || char.name;
+
+      if (isTakenByOther) {
+        claimAvailabilityBadge.innerHTML = `<span style="color:#ef4444; font-weight:700;">⛔ Already claimed by @${escapeHtml(takenInfo.username)}. Each character can only be chosen by one user!</span>`;
+        claimSubmitBtn.disabled = true;
+      } else {
+        claimAvailabilityBadge.innerHTML = `<span style="color:#4ade80; font-weight:700;">✅ Available to claim!</span>`;
+        claimSubmitBtn.disabled = false;
+      }
+
+      claimPreviewBox.classList.remove('hidden');
+    }
+
+    claimSearchInput.addEventListener('input', () => {
+      const q = claimSearchInput.value.trim();
+      clearTimeout(claimSearchTimeout);
+      if (!q || q.length < 2) {
+        claimDropdown.classList.add('hidden');
+        claimDropdown.innerHTML = '';
+        return;
+      }
+      claimSearchTimeout = setTimeout(async () => {
+        claimStatus.textContent = 'Searching characters...';
+        claimStatus.classList.remove('hidden');
+        try {
+          const res = await fetch(`/api/character-search?q=${encodeURIComponent(q)}`);
+          const items = await res.json();
+          claimStatus.classList.add('hidden');
+          claimDropdown.innerHTML = '';
+
+          if (!Array.isArray(items) || items.length === 0) {
+            claimDropdown.innerHTML = '<div style="padding:10px; color:#888; font-size:0.85rem;">No characters found.</div>';
+            claimDropdown.classList.remove('hidden');
+            return;
+          }
+
+          items.forEach((item) => {
+            const div = document.createElement('div');
+            div.className = 'dropdown-item';
+
+            const lowerName = item.name.trim().toLowerCase();
+            const takenInfo = claimedCharactersCache[lowerName];
+            const isTakenByOther = takenInfo && (!currentAuthUser || takenInfo.username.toLowerCase() !== currentAuthUser.username.toLowerCase());
+            const isTakenByMe = takenInfo && currentAuthUser && takenInfo.username.toLowerCase() === currentAuthUser.username.toLowerCase();
+
+            let badgeHtml = '';
+            if (isTakenByOther) {
+              badgeHtml = `<span style="color:#ef4444; font-size:0.75rem; font-weight:600; margin-left:auto;">🔒 Taken by @${escapeHtml(takenInfo.username)}</span>`;
+            } else if (isTakenByMe) {
+              badgeHtml = `<span style="color:#4ade80; font-size:0.75rem; font-weight:600; margin-left:auto;">⭐ Your Character</span>`;
+            }
+
+            div.innerHTML = `
+              <img src="${escapeHtml(item.image || placeholderImg)}" onerror="this.src=placeholderImg" alt="" />
+              <div class="dropdown-meta" style="flex:1;">
+                <div class="dropdown-name">${escapeHtml(item.name)}</div>
+                <div class="dropdown-series">${escapeHtml(item.series || 'Pop Culture')}</div>
+              </div>
+              ${badgeHtml}
+            `;
+
+            div.addEventListener('click', () => {
+              selectClaimCandidate(item, isTakenByOther, takenInfo);
+            });
+
+            claimDropdown.appendChild(div);
+          });
+          claimDropdown.classList.remove('hidden');
+        } catch (err) {
+          claimStatus.textContent = 'Search failed.';
+        }
+      }, 220);
+    });
+
+    claimSubmitBtn.addEventListener('click', async () => {
+      if (!selectedClaimChar) return;
+      claimSubmitBtn.disabled = true;
+      claimSubmitBtn.textContent = 'Saving...';
+      try {
+        const res = await fetch('/api/user/character', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ character: selectedClaimChar })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.error || 'Failed to claim character.');
+          claimSubmitBtn.disabled = false;
+          claimSubmitBtn.textContent = 'Confirm Character';
+          return;
+        }
+
+        claimModal.classList.add('hidden');
+        showShareToast(`🎭 Claimed "${selectedClaimChar.name}" as your character!`);
+        await checkAuthStatus();
+      } catch (err) {
+        alert('Network error claiming character.');
+      } finally {
+        claimSubmitBtn.disabled = false;
+        claimSubmitBtn.textContent = 'Confirm Character';
+      }
+    });
+
+    // Wire auth buttons & modal closures
+    if (authPickCharBtn) {
+      authPickCharBtn.addEventListener('click', openClaimModal);
+    }
+    if (authProfileTrigger) {
+      authProfileTrigger.addEventListener('click', () => {
+        if (currentAuthUser) openProfileModal(currentAuthUser.username);
+      });
+    }
+    if (lbRefreshBtn) {
+      lbRefreshBtn.addEventListener('click', () => {
+        lbRefreshBtn.textContent = '🔄 Loading...';
+        loadLeaderboard().finally(() => {
+          setTimeout(() => { lbRefreshBtn.textContent = '🔄 Refresh'; }, 400);
+        });
+      });
+    }
+
+    if (profileModalClose) profileModalClose.addEventListener('click', () => profileModal.classList.add('hidden'));
+    if (profileCloseBtn) profileCloseBtn.addEventListener('click', () => profileModal.classList.add('hidden'));
+    profileModal.addEventListener('click', (e) => {
+      if (e.target === profileModal) profileModal.classList.add('hidden');
+    });
+
+    if (claimCloseBtn) claimCloseBtn.addEventListener('click', () => claimModal.classList.add('hidden'));
+    if (claimCancelBtn) claimCancelBtn.addEventListener('click', () => claimModal.classList.add('hidden'));
+    claimModal.addEventListener('click', (e) => {
+      if (e.target === claimModal) claimModal.classList.add('hidden');
+    });
+
+    // Check connected param on load
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('connected') === '1') {
+      window.history.replaceState(null, '', window.location.pathname);
+      showShareToast('👋 Connected with Authentik!');
+    }
+    if (urlParams.get('auth') === 'no_user') {
+      window.history.replaceState(null, '', window.location.pathname);
+      alert('Authentik login did not provide username headers.');
+    }
+
+    // Initialize Auth & Leaderboard
+    checkAuthStatus();
+
   </script>
 </body>
 </html>

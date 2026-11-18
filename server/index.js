@@ -56,12 +56,21 @@ function loadStore() {
           : [],
         reportedTips: Array.isArray(parsed.reportedTips) ? parsed.reportedTips : [],
         soloShares: Array.isArray(parsed.soloShares) ? parsed.soloShares : [],
+        users: typeof parsed.users === 'object' && parsed.users !== null ? parsed.users : {},
+        sessions: typeof parsed.sessions === 'object' && parsed.sessions !== null ? parsed.sessions : {},
       };
     }
   } catch (err) {
     console.warn('[Store Load Error]', err.message);
   }
-  return { similarityProvider: 'gemini', requestedCharacters: [], reportedTips: [], soloShares: [] };
+  return {
+    similarityProvider: 'gemini',
+    requestedCharacters: [],
+    reportedTips: [],
+    soloShares: [],
+    users: {},
+    sessions: {},
+  };
 }
 
 function saveStore(storeData) {
@@ -76,6 +85,152 @@ let appStore = loadStore();
 
 app.set('trust proxy', 1);
 app.use(express.json({ limit: '2mb' }));
+
+// Helper to read cookies without external dependency
+function getCookie(req, name) {
+  const cookieHeader = req.headers.cookie;
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+// User Record Initializer
+function ensureUserRecord(username) {
+  if (!appStore.users) appStore.users = {};
+  const cleanName = (username || '').trim();
+  if (!cleanName) return null;
+
+  if (!appStore.users[cleanName]) {
+    appStore.users[cleanName] = {
+      username: cleanName,
+      character: null,
+      wins: 0,
+      losses: 0,
+      rounds: 0,
+      winningGuesses: 0,
+      totalGuesses: 0,
+      bestWinGuesses: null,
+      createdAt: Date.now(),
+      lastActive: Date.now(),
+    };
+  } else {
+    appStore.users[cleanName].lastActive = Date.now();
+  }
+  return appStore.users[cleanName];
+}
+
+// Authenticated user resolution (ForwardAuth header first, then session cookie)
+function getAuthenticatedUser(req) {
+  const headerUser = (
+    req.headers['x-authentik-username'] ||
+    req.headers['remote-user'] ||
+    ''
+  ).trim();
+
+  let username = headerUser;
+
+  if (!username) {
+    const token = getCookie(req, 'gw_session');
+    if (token && appStore.sessions && appStore.sessions[token]) {
+      username = appStore.sessions[token].username;
+    }
+  }
+
+  if (!username) return null;
+  return ensureUserRecord(username);
+}
+
+// Check if character is claimed by another user (case-insensitive name check)
+function isCharacterTaken(charName, excludeUsername = null) {
+  if (!charName || !appStore.users) return null;
+  const target = charName.trim().toLowerCase();
+  for (const [u, data] of Object.entries(appStore.users)) {
+    if (excludeUsername && u.toLowerCase() === excludeUsername.toLowerCase()) continue;
+    if (data.character && data.character.name && data.character.name.trim().toLowerCase() === target) {
+      return u;
+    }
+  }
+  return null;
+}
+
+// Stats calculator for profile cards and leaderboard
+function getUserStats(u, rank = null) {
+  if (!u) return null;
+  const wins = Number(u.wins) || 0;
+  const losses = Number(u.losses) || 0;
+  const rounds = Number(u.rounds) || (wins + losses);
+  const winRate = rounds > 0 ? Number(((wins / rounds) * 100).toFixed(1)) : 0;
+  const avgGuesses = wins > 0
+    ? Number((Number(u.winningGuesses || 0) / wins).toFixed(1))
+    : (rounds > 0 ? Number((Number(u.totalGuesses || 0) / rounds).toFixed(1)) : 0);
+
+  return {
+    username: u.username,
+    character: u.character || null,
+    wins,
+    losses,
+    rounds,
+    winRate,
+    avgGuesses,
+    bestWin: u.bestWinGuesses || null,
+    totalGuesses: Number(u.totalGuesses) || 0,
+    rank: rank !== null ? rank : null,
+    qualified: rounds >= 5,
+    roundsNeeded: Math.max(0, 5 - rounds),
+  };
+}
+
+// Calculate Leaderboard rankings
+function getLeaderboardData(currentUsername = null) {
+  const users = Object.values(appStore.users || {});
+
+  // Players with 5 or more rounds qualify for ranking
+  const qualified = users
+    .map((u) => getUserStats(u))
+    .filter((u) => u.qualified);
+
+  // Ranked by W/L ratio (winRate desc), then wins desc, then avgGuesses asc, then rounds desc
+  qualified.sort((a, b) => {
+    if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    if (a.avgGuesses !== b.avgGuesses) return a.avgGuesses - b.avgGuesses;
+    return b.rounds - a.rounds;
+  });
+
+  qualified.forEach((item, idx) => {
+    item.rank = idx + 1;
+  });
+
+  const top10 = qualified.slice(0, 10);
+
+  let currentUserEntry = null;
+  if (currentUsername) {
+    const foundRanked = qualified.find((u) => u.username.toLowerCase() === currentUsername.toLowerCase());
+    if (foundRanked) {
+      currentUserEntry = foundRanked;
+    } else if (appStore.users?.[currentUsername]) {
+      currentUserEntry = getUserStats(appStore.users[currentUsername], null);
+    }
+  }
+
+  const claimedCharacters = {};
+  for (const [name, u] of Object.entries(appStore.users || {})) {
+    if (u.character && u.character.name) {
+      claimedCharacters[u.character.name.trim().toLowerCase()] = {
+        characterName: u.character.name,
+        username: name,
+        image: u.character.image,
+      };
+    }
+  }
+
+  return {
+    top10,
+    currentUserEntry,
+    totalRanked: qualified.length,
+    claimedCharacters,
+  };
+}
 
 // Verify Authentik ForwardAuth Admin headers on /admin and /api/admin/*
 function getAuthentikAdminUser(req) {
@@ -120,6 +275,119 @@ function requireAuthentikAdmin(req, res, next) {
   req.adminUser = adminUser;
   next();
 }
+
+// Authentik Login endpoint (routed through Traefik authentik@docker middleware)
+app.get('/auth/login', (req, res) => {
+  const username = (
+    req.headers['x-authentik-username'] ||
+    req.headers['remote-user'] ||
+    ''
+  ).trim();
+
+  if (!username) {
+    return res.redirect('/?auth=no_user');
+  }
+
+  const token = crypto.randomUUID();
+  if (!appStore.sessions) appStore.sessions = {};
+  appStore.sessions[token] = {
+    username,
+    createdAt: Date.now(),
+  };
+  ensureUserRecord(username);
+  saveStore(appStore);
+
+  res.cookie('gw_session', token, {
+    path: '/',
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: 365 * 24 * 60 * 60 * 1000,
+  });
+
+  res.redirect('/?connected=1');
+});
+
+// Authentik Logout endpoint
+app.get('/auth/logout', (req, res) => {
+  const token = getCookie(req, 'gw_session');
+  if (token && appStore.sessions?.[token]) {
+    delete appStore.sessions[token];
+    saveStore(appStore);
+  }
+  res.clearCookie('gw_session', { path: '/' });
+  res.redirect('/');
+});
+
+// Current user profile & placement endpoint
+app.get('/api/auth/me', (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.json({ loggedIn: false });
+  }
+  const lb = getLeaderboardData(user.username);
+  res.json({
+    loggedIn: true,
+    user: lb.currentUserEntry || getUserStats(user),
+  });
+});
+
+// Claim or update unique character
+app.post('/api/user/character', (req, res) => {
+  const user = getAuthenticatedUser(req);
+  if (!user) {
+    return res.status(401).json({ error: 'You must connect with Authentik to claim a character.' });
+  }
+  const { character } = req.body || {};
+  if (!character || !character.name || typeof character.name !== 'string') {
+    return res.status(400).json({ error: 'A valid character selection is required.' });
+  }
+
+  const takenBy = isCharacterTaken(character.name, user.username);
+  if (takenBy) {
+    return res.status(409).json({
+      error: `"${character.name}" is already claimed by ${takenBy}! Each character can only be chosen by one user.`,
+    });
+  }
+
+  user.character = {
+    name: character.name.trim(),
+    series: (character.series || 'Custom').trim(),
+    image: character.image || null,
+    description: (character.description || character.name).trim(),
+  };
+  user.lastActive = Date.now();
+  saveStore(appStore);
+
+  const lb = getLeaderboardData(user.username);
+  res.json({
+    ok: true,
+    message: `Character "${character.name}" successfully claimed!`,
+    user: lb.currentUserEntry || getUserStats(user),
+  });
+});
+
+// Leaderboard endpoint (Top 10 + current user placement)
+app.get('/api/leaderboard', (req, res) => {
+  const user = getAuthenticatedUser(req);
+  const data = getLeaderboardData(user ? user.username : null);
+  res.json(data);
+});
+
+// Public profile card query by username
+app.get('/api/user/:username', (req, res) => {
+  const targetName = (req.params.username || '').trim();
+  const targetUser = Object.values(appStore.users || {}).find(
+    (u) => u.username.toLowerCase() === targetName.toLowerCase()
+  );
+  if (!targetUser) {
+    return res.status(404).json({ error: 'User not found.' });
+  }
+  const lb = getLeaderboardData(targetUser.username);
+  res.json({
+    user: lb.currentUserEntry || getUserStats(targetUser),
+  });
+});
 
 app.get(['/admin', '/admin.html'], requireAuthentikAdmin, (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'admin.html'));
@@ -1249,6 +1517,35 @@ function isNonYesNoQuestion(text = '') {
   return false;
 }
 
+function recordSoloGameResult(sessionId, isWin, req) {
+  if (!sessionId || !soloSessions.has(sessionId)) return null;
+  const session = soloSessions.get(sessionId);
+  if (session.recorded) return null; // already recorded
+
+  // Check if there is an authenticated user
+  const user = getAuthenticatedUser(req) || (session.username ? ensureUserRecord(session.username) : null);
+  if (!user) return null;
+
+  session.recorded = true;
+  const questionCount = (session.history ? session.history.length : 0) + (isWin ? 1 : 0);
+  user.rounds = (Number(user.rounds) || 0) + 1;
+  user.totalGuesses = (Number(user.totalGuesses) || 0) + questionCount;
+
+  if (isWin) {
+    user.wins = (Number(user.wins) || 0) + 1;
+    user.winningGuesses = (Number(user.winningGuesses) || 0) + questionCount;
+    if (user.bestWinGuesses === null || questionCount < user.bestWinGuesses) {
+      user.bestWinGuesses = questionCount;
+    }
+  } else {
+    user.losses = (Number(user.losses) || 0) + 1;
+  }
+  user.lastActive = Date.now();
+  saveStore(appStore);
+
+  return getUserStats(user);
+}
+
 app.post('/api/solo/start', async (req, res) => {
   try {
     const { category = 'all', difficulty = 'easy' } = req.body || {};
@@ -1258,11 +1555,13 @@ app.post('/api/solo/start', async (req, res) => {
     }
     const dossier = await buildDeepCharacterDossier(baseChar);
     const sessionId = crypto.randomUUID();
+    const currentUser = getAuthenticatedUser(req);
 
     soloSessions.set(sessionId, {
       createdAt: Date.now(),
       category,
       difficulty,
+      username: currentUser ? currentUser.username : null,
       character: {
         name: dossier.name || baseChar.name,
         series: dossier.series || baseChar.series,
@@ -1270,6 +1569,7 @@ app.post('/api/solo/start', async (req, res) => {
         description: dossier.description || baseChar.description,
       },
       history: [],
+      recorded: false,
     });
 
     // Clean up old sessions (> 2 hours)
@@ -1525,8 +1825,11 @@ app.post('/api/solo/ask', async (req, res) => {
     (/\b(is it|are you|guess|character)\b/i.test(qNorm) || qNorm.split(' ').length <= 4);
 
   if (isDirectFullMatch || isDistinctFirstOrLastMatch) {
+    const updatedUser = recordSoloGameResult(sessionId, true, req);
+    const winMsg = `🎉 Yes! You guessed it — the character is ${char.name}!`;
+    session.history.push({ question: userQ, answer: winMsg, heat: 'hot', verdict: 'GUESSED' });
     return res.json({
-      answer: `🎉 Yes! You guessed it — the character is ${char.name}!`,
+      answer: winMsg,
       verdict: 'GUESSED',
       heat: 'hot',
       guessed: true,
@@ -1535,6 +1838,7 @@ app.post('/api/solo/ask', async (req, res) => {
         series: char.series,
         image: char.image,
       },
+      userStats: updatedUser,
     });
   }
 
@@ -1556,8 +1860,11 @@ app.post('/api/solo/ask', async (req, res) => {
     }
 
     if (guessed) {
+      const updatedUser = recordSoloGameResult(sessionId, true, req);
+      const winMsg = `🎉 Yes! You guessed it — the character is ${char.name}!`;
+      session.history.push({ question: userQ, answer: winMsg, heat: 'hot', verdict: 'GUESSED' });
       return res.json({
-        answer: `🎉 Yes! You guessed it — the character is ${char.name}!`,
+        answer: winMsg,
         verdict: 'GUESSED',
         heat: 'hot',
         guessed: true,
@@ -1566,6 +1873,7 @@ app.post('/api/solo/ask', async (req, res) => {
           series: char.series,
           image: char.image,
         },
+        userStats: updatedUser,
       });
     }
 
@@ -1613,6 +1921,7 @@ app.post('/api/solo/reveal', (req, res) => {
   }
   const session = soloSessions.get(sessionId);
   session.revealed = true;
+  const updatedUser = recordSoloGameResult(sessionId, false, req);
   const char = session.character;
   res.json({
     character: {
@@ -1620,6 +1929,7 @@ app.post('/api/solo/reveal', (req, res) => {
       series: char.series,
       image: char.image,
     },
+    userStats: updatedUser,
   });
 });
 

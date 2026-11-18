@@ -34,6 +34,15 @@ services:
       - traefik.http.routers.guesswho-admin.middlewares=authentik@docker
       - traefik.http.routers.guesswho-admin.priority=100
       - traefik.http.routers.guesswho-admin.service=guesswho
+
+      # 3. Authentik login router for guesswho player accounts
+      - traefik.http.routers.guesswho-auth.rule=Host(`guesswho.gian.ink`) && PathPrefix(`/auth/login`)
+      - traefik.http.routers.guesswho-auth.entrypoints=websecure
+      - traefik.http.routers.guesswho-auth.tls=true
+      - traefik.http.routers.guesswho-auth.tls.certresolver=cloudflare
+      - traefik.http.routers.guesswho-auth.middlewares=authentik@docker
+      - traefik.http.routers.guesswho-auth.priority=110
+      - traefik.http.routers.guesswho-auth.service=guesswho
     networks:
       - frontend
 
