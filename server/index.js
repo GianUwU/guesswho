@@ -33,9 +33,11 @@ const OLLAMA_URL = (process.env.OLLAMA_URL || 'http://ollama:11434').replace(/\/
 const SMART_MODEL = process.env.SMART_MODEL || 'llama3.1:latest';
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
 const GEMINI_MODELS = [
+  'gemini-flash-latest',
   'gemini-flash-lite-latest',
   'gemini-3.1-flash-lite',
   'gemini-3.5-flash-lite',
+  'gemini-3.8-flash',
 ];
 const GEMINI_MODEL = process.env.GEMINI_MODEL || GEMINI_MODELS[0];
 
@@ -1386,16 +1388,7 @@ ${historyText}
 Use the dossier and previous conversation context (e.g., if the user references previous questions like "are they still alive" or "does he also...") to evaluate this question accurately.
 Respond with JSON:`;
 
-  if (appStore.similarityProvider === 'gemini') {
-    try {
-      const { parsed } = await callGeminiJSON(systemPrompt, userPrompt, 0.2);
-      return parsed;
-    } catch (err) {
-      console.warn('[Solo Ask Gemini failed, falling back to Ollama]', err.message);
-    }
-  }
-
-  // Ollama fallback
+  // Solo mode strictly uses Ollama for answering Yes/No 20-Questions
   const ollamaResponse = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
