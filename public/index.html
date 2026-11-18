@@ -521,199 +521,97 @@
 
     <!-- Mode Switcher -->
     <div class="mode-bar">
-      <button type="button" class="mode-btn active" id="mode-2p-btn">👥 2-Player</button>
-      <button type="button" class="mode-btn" id="mode-party-btn">🎉 3+ Players</button>
-      <button type="button" class="mode-btn" id="mode-solo-btn">👤 Solo Mode</button>
+      <button type="button" class="mode-btn active" id="mode-main-btn">👥 Main Mode</button>
+      <button type="button" class="mode-btn" id="mode-solo-btn">👤 Solo Mode (Yes / No)</button>
     </div>
   </div>
 
   <!-- ==================================================================== -->
-  <!-- 2-PLAYER MODE SECTION                                                -->
+  <!-- MAIN MODE (2+ PLAYER SIMILARITY) SECTION                             -->
   <!-- ==================================================================== -->
-  <div id="two-player-section">
+  <div id="main-section">
     <div class="narrow-wrap">
-      <!-- Reveal Level Selector (LVL 1 Obscure -> LVL 3 Obvious) -->
-      <div class="level-bar" id="level-bar">
-        <button type="button" class="level-btn" data-level="1">LVL 1 • Obscure</button>
-        <button type="button" class="level-btn active" data-level="2">LVL 2 • Regular</button>
-        <button type="button" class="level-btn" data-level="3">LVL 3 • Obvious</button>
-      </div>
-
-      <!-- STEP 1 & 2: Character Input -->
-      <div id="input-screen" class="card">
-        <h2 id="turn-title" style="margin-top:0; font-size:1.15rem;">Player 1: Choose Character</h2>
-
-        <div class="row">
-          <input id="char-input" type="text" placeholder="Search character or series..." autocomplete="off" />
-          <button id="random-btn" class="secondary" type="button" title="Pick a random mainstream character">🎲 Random</button>
-        </div>
-
-        <div id="search-status" class="status hidden"></div>
-        <div id="autocomplete-list" class="dropdown hidden"></div>
-
-        <!-- Selected character preview (only visible while current player is choosing) -->
-        <div id="selected-preview" class="preview hidden">
-          <img id="preview-img" src="" alt="Character preview" />
-          <div>
-            <div id="preview-name" style="font-weight:700;"></div>
-            <div id="preview-series" style="font-size:0.85rem; color:#999;"></div>
-          </div>
-        </div>
-
-        <button id="lock-btn" type="button" style="width:100%; margin-top:8px;" disabled>
-          Lock In Player 1 Character
-        </button>
-      </div>
-    </div>
-
-    <!-- STEP 3: Final Similarity Screen with Left & Right Reveal Wings -->
-    <div id="result-screen" class="result-grid hidden">
-      <!-- LEFT WING: Player 1 Reveal -->
-      <div class="side-wing">
-        <div style="font-size:0.78rem; color:#f97316; font-weight:700; text-transform:uppercase; margin-bottom:8px;">
-          Player 1
-        </div>
-        <button id="reveal-p1-btn" class="secondary" type="button" style="width:100%;">👁️ Reveal P1</button>
-        <div id="reveal-p1-card" class="hidden">
-          <img id="reveal-p1-img" src="" alt="Player 1 character" />
-          <div id="reveal-p1-name" style="font-weight:700; font-size:0.95rem;"></div>
-          <div id="reveal-p1-series" style="font-size:0.8rem; color:#999; margin-top:2px;"></div>
-        </div>
-      </div>
-
-      <!-- CENTER COLUMN: Similarity Clue + Fact Checker Question Box -->
-      <div class="card similarity-box center-col">
-        <div id="result-level-label" style="font-size:0.82rem; color:#888; text-transform:uppercase; letter-spacing:1px;">
-          What They Have In Common (LVL 2 • Regular)
-        </div>
-        <div id="similarity-output" class="similarity-text">Finding similarities<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span></div>
-        <div style="display:flex; justify-content:center; margin-bottom:12px;">
-          <button id="report-tip-btn" type="button" class="report-tip-btn" style="display:none;" title="Report a weird, inaccurate, or low-quality tip">
-            🚩 Report Weird Tip
-          </button>
-        </div>
-
-        <div class="row" style="justify-content:center;">
-          <button id="regen-btn" class="secondary" type="button" style="flex:1;">New Clue</button>
-          <button id="reset-btn" type="button" style="flex:1;">New Game</button>
-        </div>
-
-        <!-- Ask AI About Character 1 or Character 2 (In case players don't know a fact themselves) -->
-        <div class="helper-box">
-          <div class="helper-title">❓ Unsure about a fact? Ask the AI about either character:</div>
-          <form id="helper-form" class="row">
-            <select id="helper-target">
-              <option value="1">Char 1 (P1)</option>
-              <option value="2">Char 2 (P2)</option>
-            </select>
-            <input id="helper-input" type="text" placeholder="e.g. Can they swim? Do they have siblings?" autocomplete="off" />
-            <button id="helper-ask-btn" type="submit">Ask AI</button>
-          </form>
-          <div id="helper-log" class="qa-log hidden"></div>
-        </div>
-      </div>
-
-      <!-- RIGHT WING: Player 2 Reveal -->
-      <div class="side-wing">
-        <div style="font-size:0.78rem; color:#4ade80; font-weight:700; text-transform:uppercase; margin-bottom:8px;">
-          Player 2
-        </div>
-        <button id="reveal-p2-btn" class="secondary" type="button" style="width:100%;">👁️ Reveal P2</button>
-        <div id="reveal-p2-card" class="hidden">
-          <img id="reveal-p2-img" src="" alt="Player 2 character" />
-          <div id="reveal-p2-name" style="font-weight:700; font-size:0.95rem;"></div>
-          <div id="reveal-p2-series" style="font-size:0.8rem; color:#999; margin-top:2px;"></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ==================================================================== -->
-  <!-- 3+ PLAYER (PARTY) MODE SECTION                                       -->
-  <!-- ==================================================================== -->
-  <div id="party-section" class="hidden">
-    <div class="narrow-wrap">
-      <!-- Party Setup / Character Entry Screen -->
-      <div id="party-input-screen" class="card">
+      <!-- Main Setup / Character Entry Screen -->
+      <div id="main-input-screen" class="card">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-          <h2 id="party-turn-title" style="margin:0; font-size:1.15rem;">Player 1: Choose Character</h2>
-          <span id="party-count-badge" style="font-size:0.82rem; color:#ea580c; font-weight:600;">0 Players Ready</span>
+          <h2 id="main-turn-title" style="margin:0; font-size:1.15rem;">Player 1: Choose Character</h2>
+          <span id="main-count-badge" style="font-size:0.82rem; color:#ea580c; font-weight:600;">0 Players Ready</span>
         </div>
 
         <!-- Locked Players Roster Chips -->
-        <div id="party-roster" class="party-roster"></div>
+        <div id="main-roster" class="party-roster"></div>
 
         <div class="row">
-          <input id="party-char-input" type="text" placeholder="Search character or series..." autocomplete="off" />
-          <button id="party-random-btn" class="secondary" type="button" title="Pick a random mainstream character">🎲 Random</button>
+          <input id="main-char-input" type="text" placeholder="Search character or series..." autocomplete="off" />
+          <button id="main-random-btn" class="secondary" type="button" title="Pick a random mainstream character">🎲 Random</button>
         </div>
 
-        <div id="party-search-status" class="status hidden"></div>
-        <div id="party-autocomplete-list" class="dropdown hidden"></div>
+        <div id="main-search-status" class="status hidden"></div>
+        <div id="main-autocomplete-list" class="dropdown hidden"></div>
 
         <!-- Selected character preview -->
-        <div id="party-selected-preview" class="preview hidden">
-          <img id="party-preview-img" src="" alt="Character preview" />
+        <div id="main-selected-preview" class="preview hidden">
+          <img id="main-preview-img" src="" alt="Character preview" />
           <div>
-            <div id="party-preview-name" style="font-weight:700;"></div>
-            <div id="party-preview-series" style="font-size:0.85rem; color:#999;"></div>
+            <div id="main-preview-name" style="font-weight:700;"></div>
+            <div id="main-preview-series" style="font-size:0.85rem; color:#999;"></div>
           </div>
         </div>
 
         <!-- Dynamic Action Buttons -->
-        <div id="party-actions-wrap" style="margin-top:10px;">
-          <button id="party-lock-btn" type="button" style="width:100%;" disabled>
+        <div id="main-actions-wrap" style="margin-top:10px;">
+          <button id="main-lock-btn" type="button" style="width:100%;" disabled>
             Lock In Player 1 Character
           </button>
         </div>
       </div>
     </div>
 
-    <!-- Party Results Screen -->
-    <div id="party-result-screen" class="card hidden" style="margin-top:14px; padding:22px 18px;">
+    <!-- Main Results Screen -->
+    <div id="main-result-screen" class="card hidden" style="margin-top:14px; padding:22px 18px;">
       <div style="text-align:center;">
-        <div id="party-result-level-label" style="font-size:0.82rem; color:#888; text-transform:uppercase; letter-spacing:1px;">
+        <div id="main-result-level-label" style="font-size:0.82rem; color:#888; text-transform:uppercase; letter-spacing:1px;">
           What Your Characters Have In Common
         </div>
 
-        <div id="party-clues-container" class="party-clues-container">
+        <div id="main-clues-container" class="party-clues-container">
           <div class="party-clue-card" style="text-align:center;">
             Finding similarities<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span>
           </div>
         </div>
 
         <div style="display:flex; justify-content:center; margin-bottom:12px;">
-          <button id="party-report-btn" type="button" class="report-tip-btn" style="display:none;" title="Report a weird, inaccurate, or low-quality clue">
+          <button id="main-report-btn" type="button" class="report-tip-btn" style="display:none;" title="Report a weird, inaccurate, or low-quality clue">
             🚩 Report Weird Clue
           </button>
         </div>
 
         <div class="row" style="justify-content:center; max-width:440px; margin:0 auto 16px;">
-          <button id="party-regen-btn" class="secondary" type="button" style="flex:1;">New Clues</button>
-          <button id="party-reset-btn" type="button" style="flex:1;">New Game</button>
+          <button id="main-regen-btn" class="secondary" type="button" style="flex:1;">New Clue</button>
+          <button id="main-reset-btn" type="button" style="flex:1;">New Game</button>
         </div>
       </div>
 
-      <!-- Party Helper: Fact Checker -->
+      <!-- Main Helper: Fact Checker -->
       <div class="helper-box" style="max-width:680px; margin:16px auto 0;">
         <div class="helper-title">❓ Unsure about a fact? Ask the AI about any player's character:</div>
-        <form id="party-helper-form" class="row">
-          <select id="party-helper-target"></select>
-          <input id="party-helper-input" type="text" placeholder="e.g. Can they fly? Do they have siblings?" autocomplete="off" />
-          <button id="party-helper-ask-btn" type="submit">Ask AI</button>
+        <form id="main-helper-form" class="row">
+          <select id="main-helper-target"></select>
+          <input id="main-helper-input" type="text" placeholder="e.g. Can they fly? Do they have siblings?" autocomplete="off" />
+          <button id="main-helper-ask-btn" type="submit">Ask AI</button>
         </form>
-        <div id="party-helper-log" class="qa-log hidden"></div>
+        <div id="main-helper-log" class="qa-log hidden"></div>
       </div>
 
       <!-- Player Reveals Section -->
       <div style="margin-top:24px; border-top:1px solid #333; padding-top:16px;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-          <h3 style="margin:0; font-size:1.05rem;">Player Characters (<span id="party-reveal-count">0</span>)</h3>
-          <button id="party-reveal-all-btn" class="secondary" type="button" style="padding:6px 14px; font-size:0.85rem;">
+          <h3 style="margin:0; font-size:1.05rem;">Player Characters (<span id="main-reveal-count">0</span>)</h3>
+          <button id="main-reveal-all-btn" class="secondary" type="button" style="padding:6px 14px; font-size:0.85rem;">
             👁️ Reveal All
           </button>
         </div>
-        <div id="party-reveal-grid" class="party-reveal-grid"></div>
+        <div id="main-reveal-grid" class="party-reveal-grid"></div>
       </div>
     </div>
   </div>
@@ -815,24 +713,38 @@
   <script>
     const placeholderImg = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect width="100%" height="100%" fill="%23222"/><text x="50%" y="52%" dominant-baseline="middle" text-anchor="middle" fill="%23666" font-family="sans-serif" font-size="24">?</text></svg>';
 
-    // Mode switching
-    const mode2pBtn = document.getElementById('mode-2p-btn');
-    const modePartyBtn = document.getElementById('mode-party-btn');
+    // ========================================================================
+    // MODE SWITCHING & GLOBAL UTILS
+    // ========================================================================
+    const modeMainBtn = document.getElementById('mode-main-btn');
     const modeSoloBtn = document.getElementById('mode-solo-btn');
-    const twoPlayerSection = document.getElementById('two-player-section');
-    const partySection = document.getElementById('party-section');
+    const mainSection = document.getElementById('main-section');
     const soloSection = document.getElementById('solo-section');
+
+    const sharedGameBanner = document.getElementById('shared-game-banner');
+    const sharedGameSub = document.getElementById('shared-game-sub');
+    const sharedPlayBtn = document.getElementById('shared-play-btn');
+    const soloShareBtn = document.getElementById('solo-share-btn');
+    const shareToast = document.getElementById('share-toast');
 
     let soloSessionId = null;
     let soloQuestionCount = 0;
+    let toastTimer = null;
+
+    function showToast(msg) {
+      clearTimeout(toastTimer);
+      shareToast.textContent = msg;
+      shareToast.classList.remove('hidden');
+      toastTimer = setTimeout(() => {
+        shareToast.classList.add('hidden');
+      }, 3200);
+    }
 
     function switchMode(target) {
-      mode2pBtn.classList.toggle('active', target === '2p');
-      modePartyBtn.classList.toggle('active', target === 'party');
+      modeMainBtn.classList.toggle('active', target === 'main');
       modeSoloBtn.classList.toggle('active', target === 'solo');
 
-      twoPlayerSection.classList.toggle('hidden', target !== '2p');
-      partySection.classList.toggle('hidden', target !== 'party');
+      mainSection.classList.toggle('hidden', target !== 'main');
       soloSection.classList.toggle('hidden', target !== 'solo');
 
       if (target === 'solo') {
@@ -845,55 +757,10 @@
       }
     }
 
-    mode2pBtn.addEventListener('click', () => switchMode('2p'));
-    modePartyBtn.addEventListener('click', () => switchMode('party'));
+    modeMainBtn.addEventListener('click', () => switchMode('main'));
     modeSoloBtn.addEventListener('click', () => switchMode('solo'));
 
-    // ========================================================================
-    // 2-PLAYER SIMILARITY LOGIC
-    // ========================================================================
-    let currentPlayer = 1;
-    let player1Char = null;
-    let player2Char = null;
-    let currentSelection = null;
-    let selectedLevel = 2;
-    let cachedLevels = null;
-    let previousClues = [];
-    let debounceTimer = null;
-
-    const inputScreen = document.getElementById('input-screen');
-    const resultScreen = document.getElementById('result-screen');
-    const resultLevelLabel = document.getElementById('result-level-label');
-    const turnTitle = document.getElementById('turn-title');
-    const charInput = document.getElementById('char-input');
-    const randomBtn = document.getElementById('random-btn');
-    const searchStatus = document.getElementById('search-status');
-    const autocompleteList = document.getElementById('autocomplete-list');
-    const selectedPreview = document.getElementById('selected-preview');
-    const previewImg = document.getElementById('preview-img');
-    const previewName = document.getElementById('preview-name');
-    const previewSeries = document.getElementById('preview-series');
-    const lockBtn = document.getElementById('lock-btn');
-    const similarityOutput = document.getElementById('similarity-output');
-    const regenBtn = document.getElementById('regen-btn');
-    const resetBtn = document.getElementById('reset-btn');
-    const revealP1Btn = document.getElementById('reveal-p1-btn');
-    const revealP2Btn = document.getElementById('reveal-p2-btn');
-    const revealP1Card = document.getElementById('reveal-p1-card');
-    const revealP2Card = document.getElementById('reveal-p2-card');
-    const revealP1Img = document.getElementById('reveal-p1-img');
-    const revealP1Name = document.getElementById('reveal-p1-name');
-    const revealP1Series = document.getElementById('reveal-p1-series');
-    const revealP2Img = document.getElementById('reveal-p2-img');
-    const revealP2Name = document.getElementById('reveal-p2-name');
-    const revealP2Series = document.getElementById('reveal-p2-series');
-    const helperForm = document.getElementById('helper-form');
-    const helperTarget = document.getElementById('helper-target');
-    const helperInput = document.getElementById('helper-input');
-    const helperAskBtn = document.getElementById('helper-ask-btn');
-    const helperLog = document.getElementById('helper-log');
-    const levelButtons = document.querySelectorAll('.level-btn');
-    const reportTipBtn = document.getElementById('report-tip-btn');
+    // Report modal elements
     const reportModal = document.getElementById('report-modal');
     const reportQuote = document.getElementById('report-quote');
     const reportNote = document.getElementById('report-note');
@@ -901,377 +768,12 @@
     const reportCancelBtn = document.getElementById('report-cancel-btn');
     const reportSubmitBtn = document.getElementById('report-submit-btn');
 
-    const soloShareBtn = document.getElementById('solo-share-btn');
-    const sharedGameBanner = document.getElementById('shared-game-banner');
-    const sharedGameSub = document.getElementById('shared-game-sub');
-    const sharedPlayBtn = document.getElementById('shared-play-btn');
-    const shareToast = document.getElementById('share-toast');
-
-    let toastTimer = null;
-    function showToast(msg) {
-      clearTimeout(toastTimer);
-      shareToast.textContent = msg;
-      shareToast.classList.remove('hidden');
-      toastTimer = setTimeout(() => {
-        shareToast.classList.add('hidden');
-      }, 3200);
-    }
-
-    const levelNames = { 1: 'LVL 1 • Obscure', 2: 'LVL 2 • Regular', 3: 'LVL 3 • Obvious' };
-
-    levelButtons.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        selectedLevel = Number(btn.dataset.level);
-        levelButtons.forEach((b) => b.classList.toggle('active', b === btn));
-        resultLevelLabel.textContent = `What They Have In Common (${levelNames[selectedLevel]})`;
-        if (!resultScreen.classList.contains('hidden')) {
-          if (cachedLevels && cachedLevels[selectedLevel]) {
-            similarityOutput.textContent = cachedLevels[selectedLevel];
-            reportTipBtn.style.display = 'inline-flex';
-            reportTipBtn.textContent = '🚩 Report Weird Tip';
-            reportTipBtn.disabled = false;
-          } else if (player1Char && player2Char) {
-            fetchSimilarity();
-          }
-        }
-      });
-    });
-
-    function selectCharacter(charObj) {
-      currentSelection = charObj;
-      charInput.value = charObj.name;
-      autocompleteList.classList.add('hidden');
-      previewImg.src = charObj.image || placeholderImg;
-      previewName.textContent = charObj.name;
-      previewSeries.textContent = charObj.series || 'Custom entry';
-      selectedPreview.classList.remove('hidden');
-      lockBtn.disabled = false;
-    }
-
-    function renderDropdown(results, rawQuery) {
-      autocompleteList.innerHTML = '';
-      const trimmed = rawQuery.trim();
-
-      if (!results.length && trimmed.length >= 2) {
-        const manualItem = document.createElement('div');
-        manualItem.className = 'dropdown-item';
-        manualItem.textContent = `Use "${trimmed}" directly`;
-        manualItem.onclick = () => selectCharacter({
-          name: trimmed,
-          series: 'Manual Entry',
-          image: null,
-          description: trimmed
-        });
-        autocompleteList.appendChild(manualItem);
-      }
-
-      results.forEach((item) => {
-        const row = document.createElement('div');
-        row.className = 'dropdown-item';
-        const img = document.createElement('img');
-        img.src = item.image || placeholderImg;
-        img.onerror = () => { img.src = placeholderImg; };
-
-        const meta = document.createElement('div');
-        meta.className = 'dropdown-meta';
-
-        const nameEl = document.createElement('div');
-        nameEl.className = 'dropdown-name';
-        nameEl.textContent = item.name;
-
-        const seriesEl = document.createElement('div');
-        seriesEl.className = 'dropdown-series';
-        seriesEl.textContent = `${item.series} • ${item.source}`;
-
-        meta.appendChild(nameEl);
-        meta.appendChild(seriesEl);
-        row.appendChild(img);
-        row.appendChild(meta);
-        row.onclick = () => selectCharacter(item);
-        autocompleteList.appendChild(row);
-      });
-
-      // Always add "Request Character" option at the bottom of the dropdown list
-      if (trimmed.length >= 2) {
-        const reqRow = document.createElement('div');
-        reqRow.className = 'dropdown-item';
-        reqRow.style.justifyContent = 'center';
-        reqRow.style.color = '#fb923c';
-        reqRow.style.fontWeight = '600';
-        reqRow.style.fontSize = '0.9rem';
-        reqRow.style.background = '#27170a';
-        reqRow.textContent = `➕ Request Character "${trimmed}"`;
-        reqRow.onclick = async (e) => {
-          e.stopPropagation();
-          reqRow.style.pointerEvents = 'none';
-          reqRow.textContent = 'Submitting request...';
-          try {
-            await fetch('/api/characters/request', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ name: trimmed })
-            });
-            reqRow.style.color = '#4ade80';
-            reqRow.textContent = `✅ Requested "${trimmed}"!`;
-          } catch {
-            reqRow.style.color = '#f87171';
-            reqRow.textContent = 'Failed to request character.';
-          }
-        };
-        autocompleteList.appendChild(reqRow);
-        autocompleteList.classList.remove('hidden');
-      } else {
-        autocompleteList.classList.add('hidden');
-      }
-    }
-
-    async function runSearch(query) {
-      if (query.trim().length < 2) {
-        autocompleteList.classList.add('hidden');
-        searchStatus.classList.add('hidden');
-        return;
-      }
-      searchStatus.textContent = 'Searching...';
-      searchStatus.classList.remove('hidden');
-
-      try {
-        const res = await fetch(`/api/characters/search?q=${encodeURIComponent(query)}`);
-        const data = await res.json();
-        searchStatus.classList.add('hidden');
-        renderDropdown(data.results || [], query);
-      } catch (err) {
-        searchStatus.textContent = 'Search failed.';
-      }
-    }
-
-    charInput.addEventListener('input', () => {
-      const val = charInput.value;
-      if (val.trim().length >= 2) {
-        currentSelection = { name: val.trim(), series: 'Custom', image: null, description: val.trim() };
-        lockBtn.disabled = false;
-      } else {
-        currentSelection = null;
-        lockBtn.disabled = true;
-      }
-      selectedPreview.classList.add('hidden');
-
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(() => runSearch(val), 250);
-    });
-
-    randomBtn.addEventListener('click', async () => {
-      randomBtn.disabled = true;
-      searchStatus.textContent = 'Picking mainstream random character...';
-      searchStatus.classList.remove('hidden');
-      autocompleteList.classList.add('hidden');
-
-      try {
-        const res = await fetch('/api/characters/random');
-        const data = await res.json();
-        searchStatus.classList.add('hidden');
-        if (data.character) {
-          selectCharacter(data.character);
-        }
-      } catch (err) {
-        searchStatus.textContent = 'Failed to pick random character.';
-      } finally {
-        randomBtn.disabled = false;
-      }
-    });
-
-    function clearTurnUI() {
-      charInput.value = '';
-      currentSelection = null;
-      autocompleteList.innerHTML = '';
-      autocompleteList.classList.add('hidden');
-      selectedPreview.classList.add('hidden');
-      previewImg.src = '';
-      previewName.textContent = '';
-      previewSeries.textContent = '';
-      lockBtn.disabled = true;
-    }
-
-    async function fetchSimilarity() {
-      inputScreen.classList.add('hidden');
-      resultScreen.classList.remove('hidden');
-      resultLevelLabel.textContent = `What They Have In Common (${levelNames[selectedLevel]})`;
-      similarityOutput.innerHTML = 'Finding similarities<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span>';
-      regenBtn.disabled = true;
-
-      try {
-        const res = await fetch('/api/similarity', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            char1: player1Char,
-            char2: player2Char,
-            level: selectedLevel,
-            previousClues
-          })
-        });
-        const data = await res.json();
-        if (data.similarity) {
-          cachedLevels = data.levels || null;
-          similarityOutput.textContent = (cachedLevels && cachedLevels[selectedLevel]) || data.similarity;
-          reportTipBtn.style.display = 'inline-flex';
-          reportTipBtn.textContent = '🚩 Report Weird Tip';
-          reportTipBtn.disabled = false;
-          if (data.levels) {
-            Object.values(data.levels).forEach((c) => {
-              if (c && !previousClues.includes(c)) previousClues.push(c);
-            });
-          } else {
-            previousClues.push(data.similarity);
-          }
-        } else {
-          similarityOutput.textContent = data.error || 'Could not generate similarity.';
-          reportTipBtn.style.display = 'none';
-        }
-      } catch (err) {
-        similarityOutput.textContent = 'Error connecting to backend.';
-      } finally {
-        regenBtn.disabled = false;
-      }
-    }
-
-    lockBtn.addEventListener('click', () => {
-      if (!currentSelection) return;
-
-      if (currentPlayer === 1) {
-        player1Char = currentSelection;
-        currentPlayer = 2;
-        clearTurnUI();
-        turnTitle.textContent = 'Player 2: Choose Character';
-        lockBtn.textContent = 'Lock In & Show Similarity';
-        charInput.focus();
-      } else {
-        player2Char = currentSelection;
-        clearTurnUI();
-        fetchSimilarity();
-      }
-    });
-
-    revealP1Btn.addEventListener('click', () => {
-      if (!player1Char) return;
-      const isHidden = revealP1Card.classList.contains('hidden');
-      if (isHidden) {
-        revealP1Img.src = player1Char.image || placeholderImg;
-        revealP1Name.textContent = player1Char.name;
-        revealP1Series.textContent = player1Char.series || '';
-        revealP1Card.classList.remove('hidden');
-        revealP1Btn.textContent = '🙈 Hide P1';
-      } else {
-        revealP1Card.classList.add('hidden');
-        revealP1Btn.textContent = '👁️ Reveal P1';
-      }
-    });
-
-    revealP2Btn.addEventListener('click', () => {
-      if (!player2Char) return;
-      const isHidden = revealP2Card.classList.contains('hidden');
-      if (isHidden) {
-        revealP2Img.src = player2Char.image || placeholderImg;
-        revealP2Name.textContent = player2Char.name;
-        revealP2Series.textContent = player2Char.series || '';
-        revealP2Card.classList.remove('hidden');
-        revealP2Btn.textContent = '🙈 Hide P2';
-      } else {
-        revealP2Card.classList.add('hidden');
-        revealP2Btn.textContent = '👁️ Reveal P2';
-      }
-    });
-
-    // Helper Form: Ask AI a question about Char 1 or Char 2
-    helperForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const q = helperInput.value.trim();
-      if (!q) return;
-      const targetNum = helperTarget.value;
-      const targetChar = targetNum === '1' ? player1Char : player2Char;
-      if (!targetChar) return;
-
-      helperInput.disabled = true;
-      helperAskBtn.disabled = true;
-      helperAskBtn.textContent = '...';
-
-      try {
-        const res = await fetch('/api/character/ask', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ character: targetChar, question: q })
-        });
-        const data = await res.json();
-        const ans = data.answer || "I don't know.";
-
-        const row = document.createElement('div');
-        row.className = 'qa-item';
-
-        const qEl = document.createElement('span');
-        qEl.className = 'qa-q';
-        qEl.textContent = `[Char ${targetNum}] ${q}`;
-
-        const aEl = document.createElement('span');
-        const isYes = /^yes\b/i.test(ans);
-        const isNo = /^no\b/i.test(ans);
-        aEl.className = `qa-a ${isYes ? 'yes' : isNo ? 'no' : 'unknown'}`;
-        aEl.textContent = ans;
-
-        row.appendChild(qEl);
-        row.appendChild(aEl);
-        helperLog.prepend(row);
-        helperLog.classList.remove('hidden');
-        helperInput.value = '';
-      } catch (err) {
-        // ignore
-      } finally {
-        helperInput.disabled = false;
-        helperAskBtn.disabled = false;
-        helperAskBtn.textContent = 'Ask AI';
-        helperInput.focus();
-      }
-    });
-
-    regenBtn.addEventListener('click', () => {
-      fetchSimilarity();
-    });
-
-    resetBtn.addEventListener('click', () => {
-      currentPlayer = 1;
-      player1Char = null;
-      player2Char = null;
-      cachedLevels = null;
-      previousClues = [];
-      reportTipBtn.style.display = 'none';
-      clearTurnUI();
-      revealP1Card.classList.add('hidden');
-      revealP2Card.classList.add('hidden');
-      revealP1Btn.textContent = '👁️ Reveal P1';
-      revealP2Btn.textContent = '👁️ Reveal P2';
-      helperLog.innerHTML = '';
-      helperLog.classList.add('hidden');
-      helperInput.value = '';
-      turnTitle.textContent = 'Player 1: Choose Character';
-      lockBtn.textContent = 'Lock In Player 1 Character';
-      resultScreen.classList.add('hidden');
-      inputScreen.classList.remove('hidden');
-      charInput.focus();
-    });
-
-    reportTipBtn.addEventListener('click', () => {
-      const currentClue = similarityOutput.textContent.trim();
-      if (!currentClue || currentClue === 'Thinking...' || currentClue.startsWith('Finding') || currentClue.startsWith('Error') || currentClue.startsWith('Could not')) return;
-      reportQuote.textContent = `"${currentClue}"`;
-      reportNote.value = '';
-      reportModal.classList.remove('hidden');
-      reportNote.focus();
-    });
-
     reportCloseBtn.addEventListener('click', () => reportModal.classList.add('hidden'));
     reportCancelBtn.addEventListener('click', () => reportModal.classList.add('hidden'));
 
     reportSubmitBtn.addEventListener('click', async () => {
-      const currentClue = similarityOutput.textContent.trim();
-      if (!currentClue) return;
+      const clue = (mainCurrentClues || []).join(' | ');
+      if (!clue) return;
       reportSubmitBtn.disabled = true;
       reportSubmitBtn.textContent = 'Submitting...';
 
@@ -1280,16 +782,16 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            char1: player1Char,
-            char2: player2Char,
-            level: selectedLevel,
-            clue: currentClue,
+            characters: mainPlayers,
+            char1: mainPlayers[0],
+            char2: mainPlayers[1],
+            clue,
             note: reportNote.value.trim(),
           })
         });
         reportModal.classList.add('hidden');
-        reportTipBtn.textContent = '✅ Reported! Thank you';
-        reportTipBtn.disabled = true;
+        mainReportBtn.textContent = '✅ Reported! Thank you';
+        mainReportBtn.disabled = true;
         showToast('Report submitted! Thank you for the feedback.');
       } catch (err) {
         alert('Failed to submit report. Please try again.');
@@ -1300,51 +802,51 @@
     });
 
     // ========================================================================
-    // 3+ PLAYER (PARTY) MODE LOGIC
+    // MAIN MODE (2+ PLAYER SIMILARITY) LOGIC
     // ========================================================================
-    let partyPlayers = [];
-    let partyCurrentSelection = null;
-    let partyPreviousClues = [];
-    let partyDebounceTimer = null;
-    let partyCurrentClues = [];
-    let partyAllRevealed = false;
+    let mainPlayers = [];
+    let mainCurrentSelection = null;
+    let mainPreviousClues = [];
+    let mainDebounceTimer = null;
+    let mainCurrentClues = [];
+    let mainAllRevealed = false;
 
-    const partyInputScreen = document.getElementById('party-input-screen');
-    const partyResultScreen = document.getElementById('party-result-screen');
-    const partyTurnTitle = document.getElementById('party-turn-title');
-    const partyCountBadge = document.getElementById('party-count-badge');
-    const partyRoster = document.getElementById('party-roster');
-    const partyCharInput = document.getElementById('party-char-input');
-    const partyRandomBtn = document.getElementById('party-random-btn');
-    const partySearchStatus = document.getElementById('party-search-status');
-    const partyAutocompleteList = document.getElementById('party-autocomplete-list');
-    const partySelectedPreview = document.getElementById('party-selected-preview');
-    const partyPreviewImg = document.getElementById('party-preview-img');
-    const partyPreviewName = document.getElementById('party-preview-name');
-    const partyPreviewSeries = document.getElementById('party-preview-series');
-    const partyActionsWrap = document.getElementById('party-actions-wrap');
-    const partyResultLevelLabel = document.getElementById('party-result-level-label');
-    const partyCluesContainer = document.getElementById('party-clues-container');
-    const partyReportBtn = document.getElementById('party-report-btn');
-    const partyRegenBtn = document.getElementById('party-regen-btn');
-    const partyResetBtn = document.getElementById('party-reset-btn');
-    const partyHelperForm = document.getElementById('party-helper-form');
-    const partyHelperTarget = document.getElementById('party-helper-target');
-    const partyHelperInput = document.getElementById('party-helper-input');
-    const partyHelperAskBtn = document.getElementById('party-helper-ask-btn');
-    const partyHelperLog = document.getElementById('party-helper-log');
-    const partyRevealCount = document.getElementById('party-reveal-count');
-    const partyRevealAllBtn = document.getElementById('party-reveal-all-btn');
-    const partyRevealGrid = document.getElementById('party-reveal-grid');
+    const mainInputScreen = document.getElementById('main-input-screen');
+    const mainResultScreen = document.getElementById('main-result-screen');
+    const mainTurnTitle = document.getElementById('main-turn-title');
+    const mainCountBadge = document.getElementById('main-count-badge');
+    const mainRoster = document.getElementById('main-roster');
+    const mainCharInput = document.getElementById('main-char-input');
+    const mainRandomBtn = document.getElementById('main-random-btn');
+    const mainSearchStatus = document.getElementById('main-search-status');
+    const mainAutocompleteList = document.getElementById('main-autocomplete-list');
+    const mainSelectedPreview = document.getElementById('main-selected-preview');
+    const mainPreviewImg = document.getElementById('main-preview-img');
+    const mainPreviewName = document.getElementById('main-preview-name');
+    const mainPreviewSeries = document.getElementById('main-preview-series');
+    const mainActionsWrap = document.getElementById('main-actions-wrap');
+    const mainResultLevelLabel = document.getElementById('main-result-level-label');
+    const mainCluesContainer = document.getElementById('main-clues-container');
+    const mainReportBtn = document.getElementById('main-report-btn');
+    const mainRegenBtn = document.getElementById('main-regen-btn');
+    const mainResetBtn = document.getElementById('main-reset-btn');
+    const mainHelperForm = document.getElementById('main-helper-form');
+    const mainHelperTarget = document.getElementById('main-helper-target');
+    const mainHelperInput = document.getElementById('main-helper-input');
+    const mainHelperAskBtn = document.getElementById('main-helper-ask-btn');
+    const mainHelperLog = document.getElementById('main-helper-log');
+    const mainRevealCount = document.getElementById('main-reveal-count');
+    const mainRevealAllBtn = document.getElementById('main-reveal-all-btn');
+    const mainRevealGrid = document.getElementById('main-reveal-grid');
 
-    function updatePartySetupUI() {
-      const nextNum = partyPlayers.length + 1;
-      partyTurnTitle.textContent = `Player ${nextNum}: Choose Character`;
-      partyCountBadge.textContent = `${partyPlayers.length} Player${partyPlayers.length === 1 ? '' : 's'} Ready`;
+    function updateMainSetupUI() {
+      const nextNum = mainPlayers.length + 1;
+      mainTurnTitle.textContent = `Player ${nextNum}: Choose Character`;
+      mainCountBadge.textContent = `${mainPlayers.length} Player${mainPlayers.length === 1 ? '' : 's'} Ready`;
 
       // Render roster chips
-      partyRoster.innerHTML = '';
-      partyPlayers.forEach((p, idx) => {
+      mainRoster.innerHTML = '';
+      mainPlayers.forEach((p, idx) => {
         const chip = document.createElement('div');
         chip.className = 'party-chip';
         chip.innerHTML = `
@@ -1353,112 +855,150 @@
           <button type="button" class="party-chip-remove" title="Remove Player ${idx + 1}">✖</button>
         `;
         chip.querySelector('.party-chip-remove').onclick = () => {
-          partyPlayers.splice(idx, 1);
-          updatePartySetupUI();
+          mainPlayers.splice(idx, 1);
+          updateMainSetupUI();
         };
-        partyRoster.appendChild(chip);
+        mainRoster.appendChild(chip);
       });
 
       // Render action buttons
-      partyActionsWrap.innerHTML = '';
-      const hasSelection = !!partyCurrentSelection;
-      if (partyPlayers.length < 2) {
+      mainActionsWrap.innerHTML = '';
+      const hasSelection = !!mainCurrentSelection;
+      if (mainPlayers.length === 0) {
+        // Player 1
         const btn = document.createElement('button');
-        btn.id = 'party-lock-btn';
+        btn.id = 'main-lock-btn';
         btn.type = 'button';
         btn.style.width = '100%';
         btn.disabled = !hasSelection;
-        btn.textContent = `Lock In Player ${nextNum} Character`;
+        btn.textContent = 'Lock In Player 1 Character';
         btn.onclick = () => {
-          if (!partyCurrentSelection) return;
-          partyPlayers.push(partyCurrentSelection);
-          clearPartyInputUI();
-          updatePartySetupUI();
-          partyCharInput.focus();
+          if (!mainCurrentSelection) return;
+          mainPlayers.push(mainCurrentSelection);
+          clearMainInputUI();
+          updateMainSetupUI();
+          mainCharInput.focus();
         };
-        partyActionsWrap.appendChild(btn);
-      } else {
+        mainActionsWrap.appendChild(btn);
+      } else if (mainPlayers.length === 1) {
+        // Player 2 - Both regular 2-player start and add 3rd player
         const row = document.createElement('div');
         row.className = 'row';
 
         const addBtn = document.createElement('button');
-        addBtn.id = 'party-add-btn';
+        addBtn.id = 'main-add-btn';
         addBtn.type = 'button';
         addBtn.className = 'secondary';
         addBtn.style.flex = '1';
         addBtn.disabled = !hasSelection;
-        addBtn.textContent = `➕ Add Player ${nextNum} & Next`;
+        addBtn.textContent = '➕ Add Player 3';
         addBtn.onclick = () => {
-          if (!partyCurrentSelection) return;
-          partyPlayers.push(partyCurrentSelection);
-          clearPartyInputUI();
-          updatePartySetupUI();
-          partyCharInput.focus();
+          if (!mainCurrentSelection) return;
+          mainPlayers.push(mainCurrentSelection);
+          clearMainInputUI();
+          updateMainSetupUI();
+          mainCharInput.focus();
         };
 
         const playBtn = document.createElement('button');
-        playBtn.id = 'party-play-btn';
+        playBtn.id = 'main-play-btn';
+        playBtn.type = 'button';
+        playBtn.style.flex = '1.3';
+        playBtn.disabled = !hasSelection;
+        playBtn.textContent = '🚀 Lock In & Play (2 Players)';
+        playBtn.onclick = () => {
+          if (!mainCurrentSelection) return;
+          mainPlayers.push(mainCurrentSelection);
+          clearMainInputUI();
+          startMainGame();
+        };
+
+        row.appendChild(addBtn);
+        row.appendChild(playBtn);
+        mainActionsWrap.appendChild(row);
+      } else {
+        // Player 3+
+        const row = document.createElement('div');
+        row.className = 'row';
+
+        const addBtn = document.createElement('button');
+        addBtn.id = 'main-add-btn';
+        addBtn.type = 'button';
+        addBtn.className = 'secondary';
+        addBtn.style.flex = '1';
+        addBtn.disabled = !hasSelection;
+        addBtn.textContent = `➕ Add Player ${nextNum + 1}`;
+        addBtn.onclick = () => {
+          if (!mainCurrentSelection) return;
+          mainPlayers.push(mainCurrentSelection);
+          clearMainInputUI();
+          updateMainSetupUI();
+          mainCharInput.focus();
+        };
+
+        const playBtn = document.createElement('button');
+        playBtn.id = 'main-play-btn';
         playBtn.type = 'button';
         playBtn.style.flex = '1.3';
         playBtn.disabled = !hasSelection;
         playBtn.textContent = `🚀 Lock In & Play (${nextNum} Players)`;
         playBtn.onclick = () => {
-          if (!partyCurrentSelection) return;
-          partyPlayers.push(partyCurrentSelection);
-          clearPartyInputUI();
-          startPartyGame();
+          if (!mainCurrentSelection) return;
+          mainPlayers.push(mainCurrentSelection);
+          clearMainInputUI();
+          startMainGame();
         };
 
         row.appendChild(addBtn);
         row.appendChild(playBtn);
-        partyActionsWrap.appendChild(row);
+        mainActionsWrap.appendChild(row);
       }
     }
 
-    function setPartyButtonsDisabled(disabled) {
-      partyActionsWrap.querySelectorAll('button').forEach((b) => {
+    function setMainButtonsDisabled(disabled) {
+      mainActionsWrap.querySelectorAll('button').forEach((b) => {
         b.disabled = disabled;
       });
     }
 
-    function selectPartyCharacter(charObj) {
-      partyCurrentSelection = charObj;
-      partyCharInput.value = charObj.name;
-      partyAutocompleteList.classList.add('hidden');
-      partyPreviewImg.src = charObj.image || placeholderImg;
-      partyPreviewName.textContent = charObj.name;
-      partyPreviewSeries.textContent = charObj.series || 'Custom entry';
-      partySelectedPreview.classList.remove('hidden');
-      setPartyButtonsDisabled(false);
+    function selectMainCharacter(charObj) {
+      mainCurrentSelection = charObj;
+      mainCharInput.value = charObj.name;
+      mainAutocompleteList.classList.add('hidden');
+      mainPreviewImg.src = charObj.image || placeholderImg;
+      mainPreviewName.textContent = charObj.name;
+      mainPreviewSeries.textContent = charObj.series || 'Custom entry';
+      mainSelectedPreview.classList.remove('hidden');
+      setMainButtonsDisabled(false);
     }
 
-    function clearPartyInputUI() {
-      partyCharInput.value = '';
-      partyCurrentSelection = null;
-      partyAutocompleteList.innerHTML = '';
-      partyAutocompleteList.classList.add('hidden');
-      partySelectedPreview.classList.add('hidden');
-      partyPreviewImg.src = '';
-      partyPreviewName.textContent = '';
-      partyPreviewSeries.textContent = '';
-      setPartyButtonsDisabled(true);
+    function clearMainInputUI() {
+      mainCharInput.value = '';
+      mainCurrentSelection = null;
+      mainAutocompleteList.innerHTML = '';
+      mainAutocompleteList.classList.add('hidden');
+      mainSelectedPreview.classList.add('hidden');
+      mainPreviewImg.src = '';
+      mainPreviewName.textContent = '';
+      mainPreviewSeries.textContent = '';
+      setMainButtonsDisabled(true);
     }
 
-    function renderPartyDropdown(results, rawQuery) {
-      partyAutocompleteList.innerHTML = '';
+    function renderMainDropdown(results, rawQuery) {
+      mainAutocompleteList.innerHTML = '';
       const trimmed = rawQuery.trim();
 
       if (!results.length && trimmed.length >= 2) {
         const manualItem = document.createElement('div');
         manualItem.className = 'dropdown-item';
         manualItem.textContent = `Use "${trimmed}" directly`;
-        manualItem.onclick = () => selectPartyCharacter({
+        manualItem.onclick = () => selectMainCharacter({
           name: trimmed,
           series: 'Manual Entry',
           image: null,
           description: trimmed
         });
-        partyAutocompleteList.appendChild(manualItem);
+        mainAutocompleteList.appendChild(manualItem);
       }
 
       results.forEach((item) => {
@@ -1483,8 +1023,8 @@
         meta.appendChild(seriesEl);
         row.appendChild(img);
         row.appendChild(meta);
-        row.onclick = () => selectPartyCharacter(item);
-        partyAutocompleteList.appendChild(row);
+        row.onclick = () => selectMainCharacter(item);
+        mainAutocompleteList.appendChild(row);
       });
 
       if (trimmed.length >= 2) {
@@ -1513,120 +1053,120 @@
             reqRow.textContent = 'Failed to request character.';
           }
         };
-        partyAutocompleteList.appendChild(reqRow);
-        partyAutocompleteList.classList.remove('hidden');
+        mainAutocompleteList.appendChild(reqRow);
+        mainAutocompleteList.classList.remove('hidden');
       } else {
-        partyAutocompleteList.classList.add('hidden');
+        mainAutocompleteList.classList.add('hidden');
       }
     }
 
-    async function runPartySearch(query) {
+    async function runMainSearch(query) {
       if (query.trim().length < 2) {
-        partyAutocompleteList.classList.add('hidden');
-        partySearchStatus.classList.add('hidden');
+        mainAutocompleteList.classList.add('hidden');
+        mainSearchStatus.classList.add('hidden');
         return;
       }
-      partySearchStatus.textContent = 'Searching...';
-      partySearchStatus.classList.remove('hidden');
+      mainSearchStatus.textContent = 'Searching...';
+      mainSearchStatus.classList.remove('hidden');
 
       try {
         const res = await fetch(`/api/characters/search?q=${encodeURIComponent(query)}`);
         const data = await res.json();
-        partySearchStatus.classList.add('hidden');
-        renderPartyDropdown(data.results || [], query);
+        mainSearchStatus.classList.add('hidden');
+        renderMainDropdown(data.results || [], query);
       } catch (err) {
-        partySearchStatus.textContent = 'Search failed.';
+        mainSearchStatus.textContent = 'Search failed.';
       }
     }
 
-    partyCharInput.addEventListener('input', () => {
-      const val = partyCharInput.value;
+    mainCharInput.addEventListener('input', () => {
+      const val = mainCharInput.value;
       if (val.trim().length >= 2) {
-        partyCurrentSelection = { name: val.trim(), series: 'Custom', image: null, description: val.trim() };
-        setPartyButtonsDisabled(false);
+        mainCurrentSelection = { name: val.trim(), series: 'Custom', image: null, description: val.trim() };
+        setMainButtonsDisabled(false);
       } else {
-        partyCurrentSelection = null;
-        setPartyButtonsDisabled(true);
+        mainCurrentSelection = null;
+        setMainButtonsDisabled(true);
       }
-      partySelectedPreview.classList.add('hidden');
+      mainSelectedPreview.classList.add('hidden');
 
-      clearTimeout(partyDebounceTimer);
-      partyDebounceTimer = setTimeout(() => runPartySearch(val), 250);
+      clearTimeout(mainDebounceTimer);
+      mainDebounceTimer = setTimeout(() => runMainSearch(val), 250);
     });
 
-    partyRandomBtn.addEventListener('click', async () => {
-      partyRandomBtn.disabled = true;
-      partySearchStatus.textContent = 'Picking mainstream random character...';
-      partySearchStatus.classList.remove('hidden');
-      partyAutocompleteList.classList.add('hidden');
+    mainRandomBtn.addEventListener('click', async () => {
+      mainRandomBtn.disabled = true;
+      mainSearchStatus.textContent = 'Picking mainstream random character...';
+      mainSearchStatus.classList.remove('hidden');
+      mainAutocompleteList.classList.add('hidden');
 
       try {
         const res = await fetch('/api/characters/random');
         const data = await res.json();
-        partySearchStatus.classList.add('hidden');
+        mainSearchStatus.classList.add('hidden');
         if (data.character) {
-          selectPartyCharacter(data.character);
+          selectMainCharacter(data.character);
         }
       } catch (err) {
-        partySearchStatus.textContent = 'Failed to pick random character.';
+        mainSearchStatus.textContent = 'Failed to pick random character.';
       } finally {
-        partyRandomBtn.disabled = false;
+        mainRandomBtn.disabled = false;
       }
     });
 
-    function renderPartyClues(clues) {
+    function renderMainClues(clues) {
       const list = Array.isArray(clues) ? clues : [clues];
-      partyCurrentClues = list;
-      partyCluesContainer.innerHTML = '';
+      mainCurrentClues = list;
+      mainCluesContainer.innerHTML = '';
       list.forEach((c) => {
         const card = document.createElement('div');
         card.className = 'party-clue-card';
         card.textContent = c;
-        partyCluesContainer.appendChild(card);
+        mainCluesContainer.appendChild(card);
       });
-      partyReportBtn.style.display = 'inline-flex';
-      partyReportBtn.textContent = '🚩 Report Weird Clue';
-      partyReportBtn.disabled = false;
+      mainReportBtn.style.display = 'inline-flex';
+      mainReportBtn.textContent = '🚩 Report Weird Clue';
+      mainReportBtn.disabled = false;
     }
 
-    async function fetchPartySimilarity() {
-      partyResultLevelLabel.textContent = 'What Your Characters Have In Common';
-      partyCluesContainer.innerHTML = '<div class="party-clue-card" style="text-align:center;">Finding similarities<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span></div>';
-      partyRegenBtn.disabled = true;
-      partyReportBtn.style.display = 'none';
+    async function fetchMainSimilarity() {
+      mainResultLevelLabel.textContent = 'What Your Characters Have In Common';
+      mainCluesContainer.innerHTML = '<div class="party-clue-card" style="text-align:center;">Finding similarities<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span></div>';
+      mainRegenBtn.disabled = true;
+      mainReportBtn.style.display = 'none';
 
       try {
         const res = await fetch('/api/similarity', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            characters: partyPlayers,
-            previousClues: partyPreviousClues
+            characters: mainPlayers,
+            previousClues: mainPreviousClues
           })
         });
         const data = await res.json();
         const chosen = data.clues || (data.similarity ? [data.similarity] : []);
         if (chosen.length > 0) {
-          renderPartyClues(chosen);
+          renderMainClues(chosen);
           chosen.forEach((c) => {
-            if (c && !partyPreviousClues.includes(c)) partyPreviousClues.push(c);
+            if (c && !mainPreviousClues.includes(c)) mainPreviousClues.push(c);
           });
         } else {
-          partyCluesContainer.innerHTML = `<div class="party-clue-card" style="text-align:center; color:#f87171;">${data.error || 'Could not generate similarity.'}</div>`;
+          mainCluesContainer.innerHTML = `<div class="party-clue-card" style="text-align:center; color:#f87171;">${data.error || 'Could not generate similarity.'}</div>`;
         }
       } catch (err) {
-        partyCluesContainer.innerHTML = '<div class="party-clue-card" style="text-align:center; color:#f87171;">Error connecting to backend.</div>';
+        mainCluesContainer.innerHTML = '<div class="party-clue-card" style="text-align:center; color:#f87171;">Error connecting to backend.</div>';
       } finally {
-        partyRegenBtn.disabled = false;
+        mainRegenBtn.disabled = false;
       }
     }
 
-    function renderPartyRevealCards() {
-      partyRevealGrid.innerHTML = '';
-      partyAllRevealed = false;
-      partyRevealAllBtn.textContent = '👁️ Reveal All';
+    function renderMainRevealCards() {
+      mainRevealGrid.innerHTML = '';
+      mainAllRevealed = false;
+      mainRevealAllBtn.textContent = '👁️ Reveal All';
 
-      partyPlayers.forEach((p, idx) => {
+      mainPlayers.forEach((p, idx) => {
         const card = document.createElement('div');
         card.className = 'party-reveal-card';
 
@@ -1680,18 +1220,18 @@
         card.appendChild(title);
         card.appendChild(btn);
         card.appendChild(details);
-        partyRevealGrid.appendChild(card);
+        mainRevealGrid.appendChild(card);
       });
     }
 
-    partyRevealAllBtn.addEventListener('click', () => {
-      partyAllRevealed = !partyAllRevealed;
-      partyRevealAllBtn.textContent = partyAllRevealed ? '🙈 Hide All' : '👁️ Reveal All';
-      const cards = partyRevealGrid.querySelectorAll('.party-reveal-card');
+    mainRevealAllBtn.addEventListener('click', () => {
+      mainAllRevealed = !mainAllRevealed;
+      mainRevealAllBtn.textContent = mainAllRevealed ? '🙈 Hide All' : '👁️ Reveal All';
+      const cards = mainRevealGrid.querySelectorAll('.party-reveal-card');
       cards.forEach((card, idx) => {
         const btn = card.querySelector('button');
         const details = card.querySelector('.party-player-details');
-        if (partyAllRevealed) {
+        if (mainAllRevealed) {
           details.classList.remove('hidden');
           btn.textContent = `🙈 Hide P${idx + 1}`;
         } else {
@@ -1701,59 +1241,60 @@
       });
     });
 
-    function startPartyGame() {
-      partyInputScreen.classList.add('hidden');
-      partyResultScreen.classList.remove('hidden');
-      partyRevealCount.textContent = partyPlayers.length;
+    function startMainGame() {
+      mainInputScreen.classList.add('hidden');
+      mainResultScreen.classList.remove('hidden');
+      mainRevealCount.textContent = mainPlayers.length;
+      mainRegenBtn.textContent = mainPlayers.length === 2 ? 'New Clue' : 'New Clues';
 
       // Populate helper target dropdown
-      partyHelperTarget.innerHTML = '';
-      partyPlayers.forEach((p, idx) => {
+      mainHelperTarget.innerHTML = '';
+      mainPlayers.forEach((p, idx) => {
         const opt = document.createElement('option');
         opt.value = idx;
         opt.textContent = `Player ${idx + 1}`;
-        partyHelperTarget.appendChild(opt);
+        mainHelperTarget.appendChild(opt);
       });
 
-      renderPartyRevealCards();
-      fetchPartySimilarity();
+      renderMainRevealCards();
+      fetchMainSimilarity();
     }
 
-    partyRegenBtn.addEventListener('click', () => {
-      fetchPartySimilarity();
+    mainRegenBtn.addEventListener('click', () => {
+      fetchMainSimilarity();
     });
 
-    partyResetBtn.addEventListener('click', () => {
-      partyPlayers = [];
-      partyPreviousClues = [];
-      partyCurrentClues = [];
-      partyHelperLog.innerHTML = '';
-      partyHelperLog.classList.add('hidden');
-      clearPartyInputUI();
-      updatePartySetupUI();
-      partyResultScreen.classList.add('hidden');
-      partyInputScreen.classList.remove('hidden');
+    mainResetBtn.addEventListener('click', () => {
+      mainPlayers = [];
+      mainPreviousClues = [];
+      mainCurrentClues = [];
+      mainHelperLog.innerHTML = '';
+      mainHelperLog.classList.add('hidden');
+      clearMainInputUI();
+      updateMainSetupUI();
+      mainResultScreen.classList.add('hidden');
+      mainInputScreen.classList.remove('hidden');
     });
 
-    partyReportBtn.addEventListener('click', () => {
-      reportQuote.textContent = (partyCurrentClues || []).join(' | ');
+    mainReportBtn.addEventListener('click', () => {
+      reportQuote.textContent = (mainCurrentClues || []).join(' | ');
       reportNote.value = '';
       reportModal.classList.remove('hidden');
       reportNote.focus();
     });
 
-    // Party helper question form
-    partyHelperForm.addEventListener('submit', async (e) => {
+    // Main helper question form
+    mainHelperForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const q = partyHelperInput.value.trim();
+      const q = mainHelperInput.value.trim();
       if (!q) return;
-      const targetIdx = Number(partyHelperTarget.value);
-      const targetChar = partyPlayers[targetIdx];
+      const targetIdx = Number(mainHelperTarget.value);
+      const targetChar = mainPlayers[targetIdx];
       if (!targetChar) return;
 
-      partyHelperInput.disabled = true;
-      partyHelperAskBtn.disabled = true;
-      partyHelperAskBtn.textContent = '...';
+      mainHelperInput.disabled = true;
+      mainHelperAskBtn.disabled = true;
+      mainHelperAskBtn.textContent = '...';
 
       try {
         const res = await fetch('/api/character/ask', {
@@ -1779,21 +1320,21 @@
 
         row.appendChild(qEl);
         row.appendChild(aEl);
-        partyHelperLog.prepend(row);
-        partyHelperLog.classList.remove('hidden');
-        partyHelperInput.value = '';
+        mainHelperLog.prepend(row);
+        mainHelperLog.classList.remove('hidden');
+        mainHelperInput.value = '';
       } catch (err) {
         // ignore
       } finally {
-        partyHelperInput.disabled = false;
-        partyHelperAskBtn.disabled = false;
-        partyHelperAskBtn.textContent = 'Ask AI';
-        partyHelperInput.focus();
+        mainHelperInput.disabled = false;
+        mainHelperAskBtn.disabled = false;
+        mainHelperAskBtn.textContent = 'Ask AI';
+        mainHelperInput.focus();
       }
     });
 
-    // Initialize party setup UI on load
-    updatePartySetupUI();
+    // Initialize main setup UI on load
+    updateMainSetupUI();
 
     // ========================================================================
     // SOLO MODE LOGIC

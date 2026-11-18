@@ -962,6 +962,15 @@ function cleanSimilarityOutput(rawText, ...chars) {
     return '';
   }
 
+  // Strictly reject boring, vague, or trivial cop-outs (never "both/all are male", "fight somebody", etc.)
+  if (
+    /\b(are male|are men|are female|are women|are boys|are girls|fight somebody|fight someone|battle somebody|battle someone|fight enemies|battle enemies|fight evil|battle evil|have enemies|have adversaries|are warriors|are fighters|are protagonists|are heroes|wear clothes|breathe air|have hair)\b/i.test(
+      text
+    )
+  ) {
+    return '';
+  }
+
   const firstSentenceMatch = text.match(/^[^.!?]+[.!?]?/);
   if (firstSentenceMatch) {
     text = firstSentenceMatch[0].trim();
@@ -1082,7 +1091,7 @@ app.post('/api/characters/request', (req, res) => {
 
 // Report a weird or inaccurate bot clue (from main game)
 app.post('/api/tips/report', (req, res) => {
-  const { char1, char2, level, clue, note } = req.body || {};
+  const { characters, char1, char2, level, clue, note } = req.body || {};
   const trimmedClue = (clue || '').trim();
   if (!trimmedClue) {
     return res.status(400).json({ error: 'Clue text is required to submit a report.' });
@@ -1096,11 +1105,16 @@ app.post('/api/tips/report', (req, res) => {
     return String(c);
   };
 
+  const charList = Array.isArray(characters) && characters.length > 0
+    ? characters
+    : [char1, char2].filter(Boolean);
+
   const report = {
     id: crypto.randomUUID(),
     createdAt: Date.now(),
-    char1: formatChar(char1),
-    char2: formatChar(char2),
+    char1: formatChar(charList[0] || char1),
+    char2: formatChar(charList[1] || char2),
+    characters: charList.map(formatChar),
     level: Math.min(3, Math.max(1, Number(level) || 1)),
     clue: trimmedClue.slice(0, 500),
     note: (note || '').trim().slice(0, 500),
@@ -1808,30 +1822,34 @@ async function callGeminiJSON(systemText, userText, temperature = 0.35) {
   throw lastErr || new Error('All Gemini models failed');
 }
 
-async function generateSimilarityWithGemini(c1, c2, avoidCluesText) {
-  // STAGE 1: Brainstormer AI generates 15 distinct, deep in-universe canonical similarities
-  const brainstormSysPrompt = `You are a master pop culture trivia expert and game designer for a two-player Guess Who character game.
-Given two characters, brainstorm 15 GENUINE, INTERESTING, and CANONICALLY ACCURATE similarities that BOTH characters share in their lore.
+async function generateSimilarityWithGemini(characters, avoidCluesText) {
+  const is2p = characters.length === 2;
+  const maxClues = is2p ? 1 : Math.max(2, Math.floor(characters.length / 2));
 
-CRITICAL INSTRUCTION - TAP INTO DEEP CANONICAL KNOWLEDGE:
-Do NOT limit yourself to superficial stretches or any brief context snippet!
+  // STAGE 1: Brainstorm candidate similarities
+  const brainstormSysPrompt = is2p
+    ? `You are a master pop culture trivia expert and game designer for a Guess Who character game.
+Given two characters, brainstorm 15 GENUINE, HIGHLY INTERESTING, and CANONICALLY ACCURATE similarities that BOTH characters share in their lore.
+
+CRITICAL INSTRUCTION - DEEP POP-CULTURE LORE:
 Draw upon your vast canonical knowledge of both characters across their entire franchise history:
-- Deep lore & family: siblings, twin brother/sister, parents, uncles, mentors, pets
-- Origins & geography: moving away from home states (e.g. Texas, California) or living in strange/isolated environments
-- Personality, intellect & habits: logical thinkers, documenting discoveries, research journals, fears, favorite foods, catchphrases
-- Wardrobe & signature equipment: signature hats, headgear, gear, tools, weapons, distinct color schemes
-- Dynamics & relationships: being the voice of reason to chaotic/naive best friends, protecting others, fighting monsters
+- Signature weapons, gadgets, or vehicles (e.g. katanas, custom vehicles, occult artifacts)
+- Physical anomalies, transformations, or scars (e.g. robotic limbs, heterochromia, demon seals)
+- Origins, mentors, or traumas (e.g. orphaned by villains, raised by non-humans, secret experiments)
+- Quirks, habits, or dietary traits (e.g. obsessive ramen consumption, compulsive gambling, distinct catchphrases)
 
-NO SUPERFICIAL STRETCHES:
-Do NOT invent weak, generic stretches (like "both wear heavy footwear", "both study weird biology", or "both build complex machines"). Find real, surprising, and distinct facts that are 100% canonically true for BOTH characters!
+STRICTLY FORBIDDEN BORING/VAGUE TRIVIA:
+- NEVER mention gender or biological sex (NEVER write "Both are male/men/female/women").
+- NEVER mention generic conflict (NEVER write "Both fight somebody", "Both battle enemies/villains", "Both are warriors").
+- NEVER mention generic heroism (NEVER write "Both go on adventures", "Both protect the world", "Both are heroes").
+- NEVER mention obvious human baselines (NEVER write "Both have hair", "Both wear clothes").
+- NEVER mention out-of-universe meta traits (anime, cartoons, comics, video games, fiction).
 
-STRICT RULES:
-1. 100% IN-UNIVERSE: Never mention meta facts (NEVER write "Both are cartoon/anime characters", "Both star in animated series", "Both appear in games", "Both are fictional"). Clues must describe their real lives, bodies, actions, diet, appearance, or world!
-2. 100% CANONICALLY TRUE for both characters.
-3. Exactly 4 to 6 words starting with "Both" or "Neither".
-4. ONLY ONE SINGLE TRAIT per sentence! Never stack multiple adjectives.
-5. Never mention character names, series names, or franchise lore terms ("bend", "Force", "chakra", "Devil Fruit").
-6. If you do not know one of the characters at all, set "known_info": false.${avoidCluesText}
+RULES:
+1. 100% IN-UNIVERSE and 100% canonically accurate for both characters.
+2. 4 to 8 words starting with "Both" or "Neither".
+3. ONLY ONE SINGLE TRAIT per sentence.
+4. Never mention character or series names.${avoidCluesText}
 
 Return ONLY valid JSON:
 {
@@ -1841,220 +1859,24 @@ Return ONLY valid JSON:
     "Both ...",
     "... (15 total)"
   ]
-}`;
-
-  const userText = `Character 1: ${c1.name} (${c1.series})
-${c1.description ? `Background Context: ${c1.description.slice(0, 1000)}` : ''}
-
-Character 2: ${c2.name} (${c2.series})
-${c2.description ? `Background Context: ${c2.description.slice(0, 1000)}` : ''}`;
-
-  const stage1 = await callGeminiJSON(brainstormSysPrompt, userText, 0.35);
-  if (stage1.parsed.known_info === false) {
-    const msg = "I don't have enough verified info on these characters to find a connection.";
-    return { known: false, levels: { 1: msg, 2: msg, 3: msg }, provider: `gemini (${stage1.modelUsed})` };
-  }
-
-  const rawCandidates = Array.isArray(stage1.parsed.candidates) ? stage1.parsed.candidates : [];
-  const candidates = rawCandidates
-    .map((c) => cleanSimilarityOutput(c, c1, c2))
-    .filter((c) => c && c.split(/\s+/).length >= 3);
-
-  // STAGE 2: Judge AI evaluates difficulty: Level 1 (Obscure), Level 2 (Regular), Level 3 (Obvious)
-  const judgeSysPrompt = `You are the Judge AI for a two-player Guess Who character game.
-Review the candidate clues below for Character 1 and Character 2.
-
-CRITICAL JUDGING & DIFFICULTY RULES:
-1. STRICT DUAL-CHARACTER FACT-CHECK:
-   - Verify that the clue is 100% true for BOTH Character 1 AND Character 2!
-   - If a place name, origin, or attribute only applies to ONE character (e.g. Dipper is from California, not Texas; only Sandy is from Texas), REJECT IT IMMEDIATELY! Only allow traits true for both.
-   - Reject any clue that is false, hallucinated, or a weak/superficial stretch (e.g. reject "Both wear heavy footwear", "Both study weird biology").
-   - Reject any out-of-universe meta clues (never mention cartoons, anime, media, fiction, series, or video games).
-   - Reject any universe-specific negatives.${avoidCluesText ? `\n   - ${avoidCluesText.trim()}` : ''}
-2. ENFORCE ONE SINGLE TRAIT (4-6 WORDS):
-   - Rewrite any clue that stacks multiple traits so it states ONLY ONE single fact (e.g. "Both are brilliant strategists." NOT "Both are intelligent young male masterminds.").
-3. STRICT DIFFICULTY CALIBRATION (Obscure, Regular, Obvious):
-   The 3 levels represent PURELY GUESSABILITY DIFFICULTY and are NOT linked to any specific kind or category of tip:
-   - "level_1" (Obscure): Hardest difficulty. An obscure, subtle commonality that is 100% canonically true for both, but very tough to deduce who the characters are from this clue alone.
-   - "level_2" (Regular): Medium / standard difficulty. A balanced commonality that is a fair challenge—neither obscure nor an immediate dead giveaway.
-   - "level_3" (Obvious): Easiest difficulty. An obvious, recognizable connection that points strongly toward who these characters are.
-
-CRITICAL ANTI-GIVEAWAY RULE:
-- NEVER link levels to specific tip categories (any level can draw from habits, powers, appearance, background, relationships, origin, etc.). The levels represent purely how Obscure, Regular, or Obvious the connection is!
-- NEVER place an obvious giveaway into level_1 (Obscure) or level_2 (Regular)!
-- Level 1 (Obscure) MUST be noticeably harder to deduce than Level 2 (Regular).
-- Level 3 (Obvious) MUST be the easiest connection.
-
-Return ONLY valid JSON:
-{
-  "level_1": "Both/Neither [Obscure - hardest to deduce]",
-  "level_2": "Both/Neither [Regular - medium difficulty]",
-  "level_3": "Both/Neither [Obvious - easiest to deduce]"
-}`;
-
-  const judgeUserText = `Character 1: ${c1.name} (${c1.series})
-Character 2: ${c2.name} (${c2.series})
-
-Candidate Clues to Judge:
-${candidates.map((c, i) => `${i + 1}. ${c}`).join('\n')}`;
-
-  const stage2 = await callGeminiJSON(judgeSysPrompt, judgeUserText, 0.1);
-  const p2 = stage2.parsed || {};
-
-  const l1 = cleanSimilarityOutput(p2.level_1 || '', c1, c2) || candidates[0] || '';
-  const l2 = cleanSimilarityOutput(p2.level_2 || '', c1, c2) || candidates[1] || candidates[0] || '';
-  const l3 = cleanSimilarityOutput(p2.level_3 || '', c1, c2) || candidates[candidates.length - 1] || candidates[2] || '';
-
-  return {
-    known: true,
-    levels: {
-      1: l1,
-      2: l2,
-      3: l3,
-    },
-    provider: `gemini 2-stage (${stage2.modelUsed})`,
-  };
-}
-
-async function generateSimilarityWithOllama(c1, c2, avoidCluesText) {
-  // STAGE 1: Ollama Brainstormer AI generates 15 candidate clues using deep canon knowledge
-  const stage1Sys = `You are a master pop culture trivia expert and game designer for Guess Who.
-Given two characters, write 15 numbered candidate similarities (1. to 15.) that BOTH characters genuinely share in canon lore.
-Dig deep into canon: twin siblings, family, home states, relocations, journals, documenting anomalies, signature hats, fears, and relationships with naive friends.
-Never make up weak stretches (like "both wear heavy footwear" or "both study weird biology").
-RULES:
-1. IN-UNIVERSE ONLY: Never write meta facts (e.g. "Both are cartoon characters" or "Both star in animated series"). Clues must describe their real lives, bodies, actions, diet, appearance, or world!
-2. 100% CANONICALLY ACCURATE: Must be true for both characters based on their canon lore.
-3. Each line must be 4 to 6 words starting with "Both" or "Neither" and stating ONLY ONE single trait.
-4. Never mention character or series names.${avoidCluesText}
-If you do not know one of the characters at all, write "UNKNOWN: true".`;
-
-  const stage1User = `Character 1: ${c1.name} (${c1.series})
-${c1.description ? `Background Context: ${c1.description.slice(0, 800)}` : ''}
-
-Character 2: ${c2.name} (${c2.series})
-${c2.description ? `Background Context: ${c2.description.slice(0, 800)}` : ''}
-
-Write 15 numbered candidate clues (4-6 words each):`;
-
-  const res1 = await fetch(`${OLLAMA_URL}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: SMART_MODEL,
-      stream: false,
-      options: { num_ctx: 2048, temperature: 0.35, repeat_penalty: 1.15, num_predict: 320 },
-      messages: [
-        { role: 'system', content: stage1Sys },
-        { role: 'user', content: stage1User },
-      ],
-    }),
-    signal: AbortSignal.timeout(30000),
-  });
-
-  if (!res1.ok) {
-    throw new Error(`Ollama Stage 1 returned ${res1.status}`);
-  }
-
-  const data1 = await res1.json();
-  const raw1 = data1?.message?.content || '';
-
-  if (/UNKNOWN\s*:\s*true/i.test(raw1)) {
-    const msg = "I don't have enough verified info on these characters to find a connection.";
-    return { known: false, levels: { 1: msg, 2: msg, 3: msg }, provider: `ollama (${SMART_MODEL})` };
-  }
-
-  const candidateLines = raw1
-    .split('\n')
-    .map((line) => line.replace(/^[-*•\d.)\s]+/, '').trim())
-    .map((line) => cleanSimilarityOutput(line, c1, c2))
-    .filter((line) => /^(Both|Neither)\b/i.test(line) && line.split(/\s+/).length >= 3);
-
-  // STAGE 2: Ollama Judge AI selects 1 for LVL 1 (Obscure), LVL 2 (Regular), and LVL 3 (Obvious)
-  const stage2Sys = `You are the Judge AI for a Guess Who game.
-Review the candidate clues below for ${c1.name} (${c1.series}) and ${c2.name} (${c2.series}).
-1. STRICT DUAL-CHARACTER FACT-CHECK:
-   - Verify the clue is 100% true for BOTH Character 1 AND Character 2. Reject if a specific place or name only belongs to one.
-   - Reject any candidate that is false or a weak/superficial stretch.
-2. Reject any meta clues mentioning cartoons, anime, media, fiction, or video games.
-3. Reject universe-specific power negatives.${avoidCluesText ? `\n4. ${avoidCluesText.trim()}` : ''}
-4. Ensure each chosen clue states ONLY ONE single trait in 4 to 6 words starting with Both or Neither.
-5. Select 3 different clues with STRICT DIFFICULTY CALIBRATION (Obscure, Regular, Obvious):
-   The levels are purely difficulty and are NOT linked to any specific tip category:
-   - Line 1: Obscure (hardest difficulty to deduce, subtle connection).
-   - Line 2: Regular (medium / standard difficulty, balanced clue).
-   - Line 3: Obvious (easiest difficulty, obvious and easily recognizable connection).
-   CRITICAL ANTI-GIVEAWAY: Never put an obvious connection in Line 1 or Line 2!
-
-Output EXACTLY 3 lines in order from hardest to easiest giveaway, with NO prefixes, no numbering.`;
-
-  const stage2User = `Candidate Clues:\n${(candidateLines.length ? candidateLines : [raw1]).map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\nOutput the 3 chosen clue sentences in order from hardest to easiest now:`;
-
-  const res2 = await fetch(`${OLLAMA_URL}/api/chat`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: SMART_MODEL,
-      stream: false,
-      options: { num_ctx: 2048, temperature: 0.1, repeat_penalty: 1.15, num_predict: 120 },
-      messages: [
-        { role: 'system', content: stage2Sys },
-        { role: 'user', content: stage2User },
-      ],
-    }),
-    signal: AbortSignal.timeout(25000),
-  });
-
-  if (!res2.ok) {
-    throw new Error(`Ollama Stage 2 returned ${res2.status}`);
-  }
-
-  const data2 = await res2.json();
-  const raw2 = data2?.message?.content || '';
-
-  const chosenLines = raw2
-    .split('\n')
-    .map((line) => line.replace(/^(\*?\*?LVL\s*\d+\*?\*?\s*:?|[-*•\d.)\s]+)/i, '').trim())
-    .map((line) => cleanSimilarityOutput(line, c1, c2))
-    .filter((line) => /^(Both|Neither)\b/i.test(line) && !line.includes('Both/Neither'));
-
-  const l1 = chosenLines[0] || candidateLines[0] || '';
-  const l2 = chosenLines[1] || candidateLines[1] || candidateLines[0] || '';
-  const l3 = chosenLines[2] || candidateLines[candidateLines.length - 1] || candidateLines[2] || candidateLines[1] || '';
-
-  return {
-    known: true,
-    levels: {
-      1: l1,
-      2: l2,
-      3: l3,
-    },
-    provider: `ollama 2-stage (${SMART_MODEL})`,
-  };
-}
-
-async function generateMultiplayerSimilarityWithGemini(characters, avoidCluesText) {
-  const maxClues = Math.max(2, Math.floor(characters.length / 2));
-
-  // STAGE 1: Gemini Brainstormer AI
-  const brainstormSysPrompt = `You are a master pop culture trivia expert and game designer for a multiplayer (${characters.length} players) Guess Who character game.
+}`
+    : `You are a master pop culture trivia expert and game designer for a multiplayer (${characters.length} players) Guess Who character game.
 There are ${characters.length} secret characters chosen by different players (Player 1 through Player ${characters.length}).
-Your mission is to brainstorm candidate clues describing commonalities or traits among these characters.
+Your mission is to brainstorm candidate clues describing commonalities or subset traits among these characters.
 
 CRITICAL MANDATORY RULES:
-1. 100% PLAYER COVERAGE:
-   - Make sure there is AT LEAST ONE hint connected to EACH player's character (Characters 1 through ${characters.length})!
-   - Brainstorm candidate clues that describe ALL ${characters.length} characters ("All of your characters...").
-   - Also brainstorm candidate clues that describe subsets ("X of your characters..." or "One of your characters..."), ensuring every character has subset candidates describing them.
-2. QUANTIFIED PHRASING:
-   - If ALL ${characters.length} characters share a trait: start with "All of your characters..." (e.g. "All of your characters have magical powers.").
-   - If a SUBSET of characters shares a trait: start with "X of your characters..." (e.g. "Two of your characters wear white shirts.", "Three of your characters live underground.", "One of your characters is an alien.").
-   - If none share a trait: start with "None of your characters...".
-   - NEVER name character names, series names, or player numbers!
-3. 100% IN-UNIVERSE: Never mention meta facts (NEVER write "animated series", "video games", "cartoons", "fictional", "anime"). Clues must describe their real lives, bodies, abilities, attire, jobs, diet, or universe lore!
-4. 100% CANONICALLY TRUE for the exact number of characters claimed.
-5. Each clue must be 4 to 8 words and state ONLY ONE SINGLE TRAIT.
-6. If you do not know multiple characters, set "known_info": false.${avoidCluesText}
+1. 100% PLAYER COVERAGE: Ensure candidate clues cover EVERY player's character (Characters 1 through ${characters.length})! Brainstorm universal traits ("All of your characters...") and specific subset traits ("X of your characters..." / "One of your characters...").
+2. STRICTLY FORBIDDEN BORING/VAGUE TRIVIA:
+   - NEVER mention gender or biological sex (NEVER "all/two are male/men/female/women").
+   - NEVER mention generic conflict (NEVER "all/two fight somebody", "all/two battle enemies").
+   - NEVER mention generic heroism (NEVER "all/two go on adventures", "all/two are heroes").
+   - NEVER mention obvious baselines (NEVER "all/two have hair", "all/two wear clothes").
+   - NEVER mention meta media facts (anime, cartoons, comics, video games, fiction).
+3. QUANTIFIED PHRASING:
+   - "All of your characters [verb]..." if all share it.
+   - "X of your characters [verb]..." (e.g. "Two of your characters...", "Three of your characters...", "One of your characters...") if a subset shares it.
+4. 100% CANONICALLY TRUE for the claimed count.
+5. 4 to 8 words stating ONLY ONE single trait.${avoidCluesText}
 
 Return ONLY valid JSON:
 {
@@ -2074,7 +1896,7 @@ Return ONLY valid JSON:
   const stage1 = await callGeminiJSON(brainstormSysPrompt, userText, 0.35);
   if (stage1.parsed.known_info === false) {
     const msg = "I don't have enough verified info on these characters to find a connection.";
-    return { known: false, levels: { 1: [msg], 2: [msg], 3: [msg] }, provider: `gemini (${stage1.modelUsed})` };
+    return { known: false, clues: [msg], provider: `gemini (${stage1.modelUsed})` };
   }
 
   const rawCandidates = Array.isArray(stage1.parsed.candidates) ? stage1.parsed.candidates : [];
@@ -2082,20 +1904,41 @@ Return ONLY valid JSON:
     .map((c) => cleanSimilarityOutput(c, characters))
     .filter((c) => c && c.split(/\s+/).length >= 3);
 
-  // STAGE 2: Judge AI selects the absolute best set of clues covering all characters
-  const judgeSysPrompt = `You are the Judge AI for a multiplayer (${characters.length} players) Guess Who character game.
-Review the candidate clues below for the ${characters.length} characters (Character 1 through Character ${characters.length}).
-Your goal is to select the ABSOLUTE BEST combination of clues for these characters.
+  // STAGE 2: Judge AI selects the single best / absolute best clues
+  const judgeSysPrompt = is2p
+    ? `You are the Judge AI for a Guess Who character game.
+Review the candidate clues below for Character 1 and Character 2.
+Select the SINGLE ABSOLUTE BEST similarity.
+
+CRITICAL RULES:
+1. STRICT FACT-CHECK: Must be 100% canonically true for BOTH characters. Reject false facts or weak stretches.
+2. HIGH INTEREST & NO BORING/VAGUE CLUES:
+   - REJECT any clue stating gender/sex ("both are male/men/female").
+   - REJECT any clue stating generic combat ("both fight somebody", "both battle enemies").
+   - REJECT any clue stating generic heroism ("both are heroes", "both go on adventures").
+   - Select the most surprising, clever, and specific canonical connection (signature weapon, specific trauma, physical anomaly, dietary quirk, unique backstory event).
+3. Exactly 1 single sentence starting with "Both" or "Neither" (4-8 words).
+4. Never mention character names or series.
+
+Return ONLY valid JSON:
+{
+  "clues": [
+    "Both ..."
+  ]
+}`
+    : `You are the Judge AI for a multiplayer (${characters.length} players) Guess Who character game.
+Review the candidate clues below for Characters 1 through ${characters.length}.
+Select the ABSOLUTE BEST combination of clues for these characters.
 
 MANDATORY RULES:
 1. AT LEAST ONE HINT CONNECTED TO EACH PLAYER'S CHARACTER:
-   - Every single player's character (Character 1 through Character ${characters.length}) MUST be connected to at least one hint in the chosen set!
-   - If there is a great universal clue ("All of your characters..."), output just that 1 universal clue.
-   - If no single universal clue covers all characters, output 2 to ${maxClues} complementary subset clues (e.g. "Three of your characters..." and "Two of your characters...", or "Two of your characters..." and "One of your characters...") such that EVERY player's character is included in at least one hint! Never leave any player's character out with 0 hints.
-2. ABSOLUTE BEST QUALITY:
-   - Select the most fun, clever, canonically accurate, and engaging pop-culture connections.
-   - Reject any false facts, weak stretches, or meta media cop-outs (never mention cartoons, anime, media, fiction, series, or video games).
-3. Clues must start with "All of your characters", "X of your characters", "One of your characters", or "None of your characters".
+   - Every single player's character MUST be connected to at least one hint!
+   - If there is a great universal clue that is NOT vague ("All of your characters..."), output just that 1 universal clue.
+   - If no specific, interesting universal clue exists, output 2 to ${maxClues} complementary subset clues (e.g. "Two of your characters..." and "One of your characters...") such that EVERY player's character is included in at least one hint!
+2. HIGH QUALITY — REJECT VAGUE / BORING CLUES:
+   - REJECT generic cop-outs ("all/two are male", "all/two fight somebody", "all/two have enemies").
+   - Select specific, interesting pop-culture connections.
+3. Clues must start with "All of your characters", "X of your characters", or "One of your characters".
 4. Never mention character names, series, or player numbers!
 
 Return ONLY valid JSON:
@@ -2117,7 +1960,8 @@ ${candidates.map((c, i) => `${i + 1}. ${c}`).join('\n')}`;
 
   const rawClues = Array.isArray(p2.clues)
     ? p2.clues
-    : (typeof p2.clues === 'string' ? [p2.clues] : []);
+    : (typeof p2.clues === 'string' ? [p2.clues] : (p2.clue ? [p2.clue] : []));
+
   let clues = rawClues
     .map((c) => cleanSimilarityOutput(c, characters))
     .filter((c) => c && c.split(/\s+/).length >= 3);
@@ -2125,8 +1969,7 @@ ${candidates.map((c, i) => `${i + 1}. ${c}`).join('\n')}`;
   if (clues.length === 0) {
     clues = candidates.slice(0, maxClues);
   }
-  // Full coverage guarantee: if only 1 subset clue, add another candidate clue
-  if (clues.length === 1 && !/^all\b/i.test(clues[0])) {
+  if (!is2p && clues.length === 1 && !/^all\b/i.test(clues[0])) {
     const second = candidates.find((c) => c !== clues[0] && !/^all\b/i.test(c)) || candidates.find((c) => c !== clues[0]);
     if (second) clues.push(second);
   }
@@ -2139,21 +1982,30 @@ ${candidates.map((c, i) => `${i + 1}. ${c}`).join('\n')}`;
   };
 }
 
-async function generateMultiplayerSimilarityWithOllama(characters, avoidCluesText) {
-  const maxClues = Math.max(2, Math.floor(characters.length / 2));
+async function generateSimilarityWithOllama(characters, avoidCluesText) {
+  const is2p = characters.length === 2;
+  const maxClues = is2p ? 1 : Math.max(2, Math.floor(characters.length / 2));
 
   // STAGE 1: Ollama Brainstormer AI
-  const stage1Sys = `You are a master pop culture trivia expert and game designer for a multiplayer (${characters.length} players) Guess Who game.
+  const stage1Sys = is2p
+    ? `You are a master pop culture trivia expert and game designer for Guess Who.
+Given two characters, write 15 numbered candidate similarities (1. to 15.) that BOTH characters genuinely share in canon lore.
+Dig deep into canon: weapons, traumas, adoptive parents, facial scars, dietary quirks, twin siblings, and habits.
+NEVER write boring vague generic facts like "both are male", "both fight somebody", or "both wear clothes".
+RULES:
+1. IN-UNIVERSE ONLY: Never write meta facts (anime, cartoons, comics, video games).
+2. 100% CANONICALLY ACCURATE for both.
+3. 4 to 8 words starting with "Both" or "Neither" stating ONLY ONE single trait.
+4. Never mention character or series names.${avoidCluesText}
+If you do not know one of the characters at all, write "UNKNOWN: true".`
+    : `You are a master pop culture trivia expert and game designer for a multiplayer (${characters.length} players) Guess Who game.
 Given ${characters.length} characters (Character 1 through Character ${characters.length}), write 15 numbered candidate similarities (1. to 15.) that describe commonalities or subset traits among them.
 MANDATORY RULES:
-1. FULL PLAYER COVERAGE: Ensure there are candidate clues covering EVERY single player's character (Characters 1 through ${characters.length})!
-2. QUANTIFIED PHRASING:
-   - "All of your characters [verb]..." if all share it.
-   - "X of your characters [verb]..." (e.g. "Two of your characters...", "Three of your characters...", "One of your characters...") if a subset shares it.
-3. IN-UNIVERSE ONLY: Never write meta facts (no "cartoon", "anime", "video game", "series"). Describe their canon abilities, appearance, jobs, or traits.
-4. 100% CANONICALLY ACCURATE.
-5. Each line must be 4 to 8 words and state ONLY ONE single trait.
-6. Never mention character or series names or player numbers.${avoidCluesText}
+1. FULL PLAYER COVERAGE: Ensure candidate clues cover EVERY player's character!
+2. NO BORING VAGUE FACTS: Never write "all/two are male", "all/two fight somebody", "all/two are heroes".
+3. QUANTIFIED PHRASING: "All of your characters..." if all share, or "X of your characters..." for subsets.
+4. IN-UNIVERSE ONLY, 100% CANONICALLY ACCURATE.
+5. 4 to 8 words stating ONLY ONE single trait.${avoidCluesText}
 If you do not know multiple characters, write "UNKNOWN: true".`;
 
   const stage1User = `Characters:
@@ -2192,20 +2044,23 @@ Write 15 numbered candidate clues (4-8 words each):`;
     .split('\n')
     .map((line) => line.replace(/^[-*•\d.)\s]+/, '').trim())
     .map((line) => cleanSimilarityOutput(line, characters))
-    .filter((line) => line.split(/\s+/).length >= 3);
+    .filter((line) => line && line.split(/\s+/).length >= 3);
 
   // STAGE 2: Ollama Judge AI
-  const stage2Sys = `You are the Judge AI for a multiplayer Guess Who game with ${characters.length} players (Character 1 through Character ${characters.length}).
+  const stage2Sys = is2p
+    ? `You are the Judge AI for a Guess Who game.
+Review the candidate clues below for Character 1 and Character 2.
+Select the SINGLE ABSOLUTE BEST similarity.
+1. Must be 100% canonically true for both.
+2. REJECT boring vague cop-outs ("both are male", "both fight somebody", "both are heroes"). Select the most interesting, specific lore connection.
+3. Output EXACTLY 1 clue line starting with "Both" or "Neither" with NO numbering or prefixes.`
+    : `You are the Judge AI for a multiplayer Guess Who game with ${characters.length} players.
 Review the candidate clues below and select the ABSOLUTE BEST set of clues for these characters.
+1. AT LEAST ONE HINT CONNECTED TO EACH PLAYER'S CHARACTER!
+2. REJECT vague generic cop-outs ("all/two are male", "all/two fight somebody").
+3. Output 1 to ${maxClues} best clue lines, one per line, with NO numbering or prefixes.`;
 
-CRITICAL MANDATORY RULE: AT LEAST ONE HINT CONNECTED TO EACH PLAYER'S CHARACTER!
-Every player's character (Character 1 through Character ${characters.length}) MUST be connected to at least one hint:
-- If a clue starts with "All of your characters...", 1 clue covers everyone.
-- Otherwise, output 2 to ${maxClues} complementary clues (e.g. "Two of your characters..." and "One of your characters...", or "Three of your characters..." and "Two of your characters...") so that EVERY player's character is included in at least one hint. NEVER leave any player's character out with 0 hints!
-
-Output 1 to ${maxClues} best clue lines, one per line, with NO numbering or prefixes.`;
-
-  const stage2User = `Candidate Clues:\n${(candidateLines.length ? candidateLines : [raw1]).map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\nOutput the chosen clues:`;
+  const stage2User = `Candidate Clues:\n${(candidateLines.length ? candidateLines : [raw1]).map((c, i) => `${i + 1}. ${c}`).join('\n')}\n\nOutput the chosen clue(s):`;
 
   const res2 = await fetch(`${OLLAMA_URL}/api/chat`, {
     method: 'POST',
@@ -2238,8 +2093,7 @@ Output 1 to ${maxClues} best clue lines, one per line, with NO numbering or pref
   if (chosenLines.length === 0) {
     chosenLines = candidateLines.slice(0, maxClues);
   }
-  // Full coverage guarantee: if only 1 subset clue, add another candidate clue
-  if (chosenLines.length === 1 && !/^all\b/i.test(chosenLines[0])) {
+  if (!is2p && chosenLines.length === 1 && !/^all\b/i.test(chosenLines[0])) {
     const second = candidateLines.find((c) => c !== chosenLines[0] && !/^all\b/i.test(c)) || candidateLines.find((c) => c !== chosenLines[0]);
     if (second) chosenLines.push(second);
   }
@@ -2253,80 +2107,29 @@ Output 1 to ${maxClues} best clue lines, one per line, with NO numbering or pref
 }
 
 app.post('/api/similarity', async (req, res) => {
-  const { char1, char2, characters: inputCharacters, level = 2, previousClues = [] } = req.body || {};
+  let { char1, char2, characters: inputCharacters, previousClues = [] } = req.body || {};
 
-  const isMultiplayer = Array.isArray(inputCharacters) && inputCharacters.length >= 3;
-
-  if (!isMultiplayer && (!char1?.name || !char2?.name)) {
-    return res.status(400).json({ error: 'Both Player 1 and Player 2 characters are required (or at least 3 characters for Party Mode).' });
+  let charList = [];
+  if (Array.isArray(inputCharacters) && inputCharacters.length >= 2) {
+    charList = inputCharacters;
+  } else if (char1?.name && char2?.name) {
+    charList = [char1, char2];
+  } else {
+    return res.status(400).json({ error: 'At least 2 characters are required.' });
   }
 
-  const revealLevel = Math.min(3, Math.max(1, Number(level) || 2));
-
   try {
-    if (isMultiplayer) {
-      const charList = await Promise.all(
-        inputCharacters.map((c) => buildDeepCharacterDossier(c))
-      );
+    const dossiers = await Promise.all(
+      charList.map((c) => buildDeepCharacterDossier(c))
+    );
 
-      const unknownChars = charList.filter((c) => !c.hasVerifiedInfo);
-      if (unknownChars.length > 0) {
-        const unknownNames = unknownChars.map((c) => `"${c.name}"`).join(', ');
-        const msg = `I don't know enough verified info about ${unknownNames} to find connections.`;
-        return res.json({
-          similarity: msg,
-          clues: [msg],
-          unknownCharacter: true,
-        });
-      }
-
-      const avoidCluesText =
-        Array.isArray(previousClues) && previousClues.length > 0
-          ? `\nDo NOT repeat or paraphrase any of these previous clues: ${previousClues.map((c) => `"${c}"`).join(', ')}.`
-          : '';
-
-      let result;
-      if (appStore.similarityProvider === 'gemini') {
-        try {
-          result = await generateMultiplayerSimilarityWithGemini(charList, avoidCluesText);
-        } catch (gemErr) {
-          console.warn('[Gemini Fallback to Ollama for Multiplayer]', gemErr.message);
-          result = await generateMultiplayerSimilarityWithOllama(charList, avoidCluesText);
-        }
-      } else {
-        result = await generateMultiplayerSimilarityWithOllama(charList, avoidCluesText);
-      }
-
-      const currentClues = result.clues && result.clues.length > 0
-        ? result.clues
-        : ["All of your characters share a mysterious connection."];
-
-      return res.json({
-        similarity: currentClues.join(' '),
-        clues: currentClues,
-        levels: { 1: currentClues, 2: currentClues, 3: currentClues },
-        model: result.provider,
-      });
-    }
-
-    const [c1, c2] = await Promise.all([
-      buildDeepCharacterDossier(char1),
-      buildDeepCharacterDossier(char2),
-    ]);
-
-    if (!c1.hasVerifiedInfo || !c2.hasVerifiedInfo) {
-      const unknownNames = [
-        !c1.hasVerifiedInfo ? `"${c1.name}"` : null,
-        !c2.hasVerifiedInfo ? `"${c2.name}"` : null,
-      ]
-        .filter(Boolean)
-        .join(' and ');
-      const msg = `I don't know enough verified info about ${unknownNames} to find a connection.`;
+    const unknownChars = dossiers.filter((c) => !c.hasVerifiedInfo);
+    if (unknownChars.length > 0) {
+      const unknownNames = unknownChars.map((c) => `"${c.name}"`).join(', ');
+      const msg = `I don't know enough verified info about ${unknownNames} to find connections.`;
       return res.json({
         similarity: msg,
         clues: [msg],
-        levels: { 1: msg, 2: msg, 3: msg },
-        level: revealLevel,
         unknownCharacter: true,
       });
     }
@@ -2339,31 +2142,23 @@ app.post('/api/similarity', async (req, res) => {
     let result;
     if (appStore.similarityProvider === 'gemini') {
       try {
-        result = await generateSimilarityWithGemini(c1, c2, avoidCluesText);
+        result = await generateSimilarityWithGemini(dossiers, avoidCluesText);
       } catch (gemErr) {
         console.warn('[Gemini Fallback to Ollama]', gemErr.message);
-        result = await generateSimilarityWithOllama(c1, c2, avoidCluesText);
+        result = await generateSimilarityWithOllama(dossiers, avoidCluesText);
       }
     } else {
-      result = await generateSimilarityWithOllama(c1, c2, avoidCluesText);
+      result = await generateSimilarityWithOllama(dossiers, avoidCluesText);
     }
 
-    const parsedLevels = result.levels;
-    const anyValid =
-      parsedLevels[2] ||
-      parsedLevels[3] ||
-      parsedLevels[1] ||
-      "I don't have enough verified info to find a connection.";
-    if (!parsedLevels[1]) parsedLevels[1] = anyValid;
-    if (!parsedLevels[2]) parsedLevels[2] = anyValid;
-    if (!parsedLevels[3]) parsedLevels[3] = anyValid;
+    const clues = result.clues && result.clues.length > 0
+      ? result.clues
+      : ["All of your characters share a mysterious connection."];
 
-    const currentClue = parsedLevels[revealLevel];
-    res.json({
-      similarity: currentClue,
-      clues: [currentClue],
-      levels: parsedLevels,
-      level: revealLevel,
+    return res.json({
+      similarity: clues.join(' '),
+      clues,
+      levels: { 1: clues, 2: clues, 3: clues },
       model: result.provider,
     });
   } catch (err) {

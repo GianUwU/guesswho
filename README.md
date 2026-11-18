@@ -2,7 +2,7 @@
 
 ![Guess Who Preview](./guesswho_preview.png)
 
-An AI-powered pop-culture character guessing game featuring **2-Player Similarity Mode**, **3+ Player Party Mode**, and **Solo 20-Questions Mode** against an intelligent AI judge.
+An AI-powered pop-culture character guessing game featuring **Main Mode (2+ Player Deep-Lore Similarities)** and **Solo 20-Questions Mode** against an intelligent AI judge.
 
 Live: **[https://guesswho.gian.ink](https://guesswho.gian.ink)**
 
@@ -10,28 +10,22 @@ Live: **[https://guesswho.gian.ink](https://guesswho.gian.ink)**
 
 ## 🌟 Game Modes
 
-### 👥 1. Two-Player Deep-Lore Similarity Mode
-- **Dual Secret Selection**: Both players secretly lock in a character from anime, gaming, live action, comics, or animation.
-- **AI Similarity Engine**: Analyzes both characters and extracts a common trait, connection, or shared lore across three distinct difficulty levels:
-  - **Level 1 (Obscure)**: Hardest difficulty—a subtle, obscure connection that is difficult to deduce from the clue alone.
-  - **Level 2 (Regular)**: Medium / standard difficulty—a balanced connection offering a fair, fun challenge.
-  - **Level 3 (Obvious)**: Easiest difficulty—an obvious, easily recognizable giveaway connection.
-  *(Note: Levels represent purely guessability difficulty and are not tied to any specific tip category—any level can draw from any aspect of lore, habits, powers, appearance, relationships, or background).*
-- **Fact-Checker / Helper Bot**: If players are unsure about a specific fact about either character during the game, they can ask the AI without revealing the character's identity.
-- **Independent Reveal Wings**: Each player's identity card is independently hidden and revealable on the left and right wings.
+### 👥 1. Main Mode (2+ Players Deep-Lore Similarity)
+- **Unified Scalable Roster (2 to Any Number of Players)**:
+  - Players secretly lock in characters one by one.
+  - On Player 2's step, choose either instant play (`🚀 Lock In & Play (2 Players)`) or seamlessly add more players (`➕ Add Player 3`).
+  - Supports unlimited players ($N \ge 2$).
+- **Absolute Best Clue Selection (No Levels)**:
+  - Selects the single absolute best canonical lore hint without artificial difficulty levels.
+  - For 2 players: 1 deep, surprising in-universe connection.
+  - For 3+ players: 1 universal clue (if genuinely interesting) or up to $\lfloor N/2 \rfloor$ specific subset clues (`"Two of your characters..."`, `"All of you..."`, etc.).
+- **Full Player Coverage Guarantee**: Every player's character is guaranteed to have at least one hint connected to them.
+- **Anti-Vague Lore Filtering**: Strictly filters out generic, boring trivialities such as gender (`"both are male/female"`), generic combat (`"you all fight somebody/enemies"`), or obvious human baselines.
+- **Fact-Checker / Helper Bot**: Query the AI about any player's character during the game without spoilers.
+- **Player Reveal Cards**: Individual reveal cards for each player plus an all-at-once "Reveal All" toggle.
 - **Tip Quality Reporting**: Players can flag weird, inaccurate, or low-quality AI clues for review.
 
-### 🎉 2. 3+ Player Party Mode
-- **Unlimited Group Size ($3+$ Players)**: Players secretly input their characters one by one. Once at least 3 players are ready, the group can launch the game or keep adding more players.
-- **Full Player Coverage Guarantee**: Every player's character is guaranteed to have at least one hint connected to them!
-- **Absolute Best Clues**: Instead of difficulty levels, the AI crafts the single best combination of hints for the chosen group:
-  - Universal commonalities (`"All of your characters..."`) if one applies to everyone.
-  - Or complementary subset commonalities (`"Two of your characters wear white shirts"`, `"Three of your characters live underground"`, `"One of your characters is a wizard"`).
-  - Clues remain strictly in-universe and never reveal player numbers or character names.
-- **Group Fact-Checker**: Any player can query the AI about any player's character without spoilers.
-- **Party Reveal Grid**: Individual reveal cards for each player plus an all-at-once "Reveal All" toggle.
-
-### 👤 3. Solo 20-Questions Mode
+### 👤 2. Solo 20-Questions Mode
 - **Category & Difficulty Selection**:
   - **Universes**: All Universes, Anime Only, Live Action Only, Western Animation Only, Gaming Only.
   - **Difficulties**:
