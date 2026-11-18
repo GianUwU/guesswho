@@ -1325,6 +1325,14 @@ EVALUATION RULES:
      - Definite No: e.g. "🙅 Definitely not!", "❌ Nope, not at all.", "👎 No."
      - Unconfirmed / obscure canon: e.g. "🤷 Hard to say / rarely mentioned in canon."
 
+CRITICAL ANTI-SPOILER & NO-EXPLANATION RULE (NEVER LEAK TRAITS OR REASONS):
+- STRICT ANSWER LENGTH: Your answer text MUST be ONLY 2 TO 5 WORDS (including emoji)!
+- NEVER EXPLAIN WHY: Do NOT explain why an answer is No or Yes!
+  - FORBIDDEN: NEVER mention what the character is (e.g. if asked "do they run?", NEVER say "Nope, cars don't run!" or "No, fish swim!" or "Nope, ghosts float!").
+  - FORBIDDEN: NEVER volunteer unprompted lore, category names, or justifications (e.g. NEVER say "because...", "since...", "cars...", "robots...", "animals...", "vehicles...", etc.).
+  - Simply answer the question directly with a short reaction: e.g. "🙅 Definitely not!", "❌ Nope, not at all.", "👎 No, they do not.", "👍 Yes, absolutely!", "✨ Yes, that's right."
+- If the answer is No, just say No. NEVER give away what they actually are!
+
 3. NON-YES/NO QUESTION EVALUATION:
    - In Guess Who, questions MUST be answerable with Yes or No (or be a direct character guess).
    - If the player asks an open-ended question that CANNOT be answered with Yes or No (e.g. "What color is their hair?", "Where do they live?", "Who is their friend?", "How old are they?", "Tell me about them", "What anime is this?"):
@@ -1410,6 +1418,52 @@ Respond with JSON:`;
   const data = await ollamaResponse.json();
   const rawContent = data?.message?.content || '{}';
   return JSON.parse(rawContent);
+}
+
+function sanitizeSoloAnswer(rawAnswer, verdict, userQ, char) {
+  if (!rawAnswer) return rawAnswer;
+  let cleaned = rawAnswer.trim();
+
+  if (verdict === 'INVALID' || verdict === 'GUESSED') {
+    return cleaned;
+  }
+
+  // 1. Strip explanatory clauses like "because", "since", "as", etc.
+  cleaned = cleaned.replace(/([,;:—–-]\s*)(?:because|since|as|for|given that|due to|they\s+are\s+a|they're\s+a)\b.*$/i, '.');
+
+  // 2. For NO answers: allow only safe adverbs/modifiers after comma, strip any noun/entity explanation:
+  // e.g. "❌ Nope, cars don't run!" -> "❌ Nope."
+  // e.g. "🙅 No, fish swim!" -> "🙅 No."
+  // e.g. "❌ Nope, not at all." -> "❌ Nope, not at all." (preserved!)
+  if (verdict === 'NO' || /\bno(pe)?\b/i.test(cleaned)) {
+    const safeNoPattern = /^([^\w\s]*\s*(?:no|nope|definitely not|close, but no|hardly))\s*,\s*(not at all|definitely not|not quite|they don't|they do not|not really|not even close)[.!]?$/i;
+    const genericNoMatch = cleaned.match(/^([^\w\s]*\s*(?:no|nope|definitely not|close, but no|hardly))\s*,\s*(.+)$/i);
+    if (genericNoMatch && !safeNoPattern.test(cleaned)) {
+      cleaned = genericNoMatch[1].trim() + '.';
+    }
+  }
+
+  // 3. For YES answers: allow only safe adverbs/modifiers after comma, strip unsolicited lore explanations:
+  if (verdict === 'YES' || /\byes\b/i.test(cleaned)) {
+    const safeYesPattern = /^([^\w\s]*\s*yes)\s*,\s*(absolutely|definitely|that's right|that is correct|they do|they are|in a sense|indeed|for sure|nailed it|spot on)[.!]?(\s*(nailed it|spot on|great job|you got it)[.!]?)?$/i;
+    const genericYesMatch = cleaned.match(/^([^\w\s]*\s*yes)\s*,\s*(.+)$/i);
+    if (genericYesMatch && !safeYesPattern.test(cleaned)) {
+      cleaned = genericYesMatch[1].trim() + '!';
+    }
+  }
+
+  // 4. Scrub character name if leaked prematurely
+  if (char && char.name) {
+    const nameRegex = new RegExp(`\\b${char.name.replace(/[^a-z0-9]/gi, '\\s*')}\\b`, 'gi');
+    cleaned = cleaned.replace(nameRegex, 'the secret character');
+  }
+
+  cleaned = cleaned.replace(/\s+\./g, '.').replace(/\.+$/, '.');
+  if (!/[.!?]$/.test(cleaned)) {
+    cleaned += '.';
+  }
+
+  return cleaned;
 }
 
 app.post('/api/solo/ask', async (req, res) => {
@@ -1513,6 +1567,8 @@ app.post('/api/solo/ask', async (req, res) => {
       if (verdict === 'YES') answer = '👍 Yes, that is correct.';
       else if (verdict === 'NO') answer = '🙅 No, that is not correct.';
       else answer = "🤷 Hard to say / rarely mentioned in canon.";
+    } else {
+      answer = sanitizeSoloAnswer(answer, verdict, userQ, char);
     }
 
     if (!['hot', 'warm', 'neutral', 'cold'].includes(heat)) {
