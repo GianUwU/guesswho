@@ -1762,6 +1762,7 @@
     }
 
     function triggerAbandonIfActive() {
+      if (currentAuthUser) return; // Authenticated users keep their game active across reloads and devices!
       if (soloSessionId && soloQuestionCount > 0 && !soloGameOver) {
         soloGameOver = true;
         const payload = JSON.stringify({ sessionId: soloSessionId });
@@ -1783,13 +1784,21 @@
 
     if (soloCatSelect) {
       soloCatSelect.addEventListener('change', () => {
-        startSoloGame();
+        if (soloSessionId && !soloGameOver) {
+          alert('You must give up or finish your current game before switching categories!');
+          return;
+        }
+        startSoloGame({ force: true });
       });
     }
 
     if (soloDiffSelect) {
       soloDiffSelect.addEventListener('change', () => {
-        startSoloGame();
+        if (soloSessionId && !soloGameOver) {
+          alert('You must give up or finish your current game before changing difficulty!');
+          return;
+        }
+        startSoloGame({ force: true });
       });
     }
 
@@ -1832,8 +1841,52 @@
       return false;
     }
 
-    async function startSoloGame() {
-      triggerAbandonIfActive();
+    function renderSoloQaRow(num, q, ans, verdict, heat) {
+      const row = document.createElement('div');
+      row.className = 'qa-item';
+
+      const qEl = document.createElement('span');
+      qEl.className = 'qa-q';
+      qEl.textContent = `${num}. ${q}`;
+
+      const ansWrap = document.createElement('div');
+      ansWrap.className = 'qa-ans-wrap';
+
+      if (heat === 'hot') {
+        const badge = document.createElement('span');
+        badge.className = 'heat-badge heat-hot';
+        badge.textContent = '🔥 HOT!';
+        ansWrap.appendChild(badge);
+      } else if (heat === 'warm') {
+        const badge = document.createElement('span');
+        badge.className = 'heat-badge heat-warm';
+        badge.textContent = '♨️ WARM';
+        ansWrap.appendChild(badge);
+      } else if (heat === 'cold') {
+        const badge = document.createElement('span');
+        badge.className = 'heat-badge heat-cold';
+        badge.textContent = '❄️ COLD';
+        ansWrap.appendChild(badge);
+      }
+
+      const aEl = document.createElement('span');
+      const isYes = verdict === 'YES' || (verdict !== 'NO' && /\byes\b/i.test(ans));
+      const isNo = verdict === 'NO' || /\b(no|nope)\b/i.test(ans);
+      aEl.className = `qa-a ${isYes ? 'yes' : isNo ? 'no' : 'unknown'}`;
+      aEl.textContent = ans;
+      ansWrap.appendChild(aEl);
+
+      row.appendChild(qEl);
+      row.appendChild(ansWrap);
+      soloQaLog.prepend(row);
+      soloQaLog.classList.remove('hidden');
+    }
+
+    async function startSoloGame(options = {}) {
+      const { force = false } = options;
+      if (!currentAuthUser) {
+        triggerAbandonIfActive();
+      }
       soloSessionId = null;
       soloQuestionCount = 0;
       soloGameOver = false;
@@ -1849,7 +1902,9 @@
       soloShareBtn.style.display = 'none';
       soloShareBtn.textContent = '📤 Share Chat';
       soloShareBtn.disabled = false;
-      soloStatus.innerHTML = 'Picking a secret character<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span>';
+      soloStatus.innerHTML = force
+        ? 'Picking a secret character<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span>'
+        : 'Loading secret character<span class="loading-dots"><span class="dot dot-1">.</span><span class="dot dot-2">.</span><span class="dot dot-3">.</span></span>';
 
       const category = soloCatSelect ? soloCatSelect.value : 'all';
       const difficulty = soloDiffSelect ? soloDiffSelect.value : 'easy';
@@ -1858,7 +1913,7 @@
         const res = await fetch('/api/solo/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ category, difficulty })
+          body: JSON.stringify({ category, difficulty, force })
         });
         const data = await res.json();
         if (data.sessionId) {
@@ -1868,6 +1923,37 @@
           soloAskBtn.disabled = false;
           soloGiveupBtn.style.display = 'inline-flex';
           soloGiveupBtn.disabled = false;
+
+          // Lock category selector while game is actively in progress
+          if (soloCatSelect) {
+            soloCatSelect.disabled = true;
+            soloCatSelect.title = 'Give up or finish the current game before switching categories.';
+          }
+          if (soloDiffSelect) {
+            soloDiffSelect.disabled = true;
+            soloDiffSelect.title = 'Give up or finish the current game before changing difficulty.';
+          }
+
+          // If resumed active game on account, restore history & settings
+          if (data.resumed && Array.isArray(data.history)) {
+            soloQuestionCount = data.questionCount || data.history.length;
+            soloQCount.textContent = `Questions: ${soloQuestionCount}`;
+            if (data.category && soloCatSelect) {
+              soloCatSelect.value = data.category;
+            }
+            if (data.difficulty && soloDiffSelect) {
+              soloDiffSelect.value = data.difficulty;
+            }
+            soloQaLog.innerHTML = '';
+            for (let i = 0; i < data.history.length; i++) {
+              const item = data.history[i];
+              renderSoloQaRow(i + 1, item.question, item.answer, item.verdict, item.heat);
+            }
+            if (data.history.length > 0) {
+              soloShareBtn.style.display = 'inline-flex';
+            }
+          }
+
           soloInput.focus();
         } else {
           soloStatus.textContent = data.error || 'Failed to start Solo Mode.';
@@ -1878,6 +1964,7 @@
     }
 
     function showSoloCharacterReveal(charObj, headerText, borderColor) {
+      soloGameOver = true;
       soloRevealBox.style.borderColor = borderColor;
       soloRevealTitle.style.color = borderColor;
       soloRevealTitle.textContent = headerText;
@@ -1888,6 +1975,16 @@
       soloInput.disabled = true;
       soloAskBtn.disabled = true;
       soloGiveupBtn.disabled = true;
+
+      // Re-enable category and difficulty selection for the next game
+      if (soloCatSelect) {
+        soloCatSelect.disabled = false;
+        soloCatSelect.title = '';
+      }
+      if (soloDiffSelect) {
+        soloDiffSelect.disabled = false;
+        soloDiffSelect.title = '';
+      }
     }
 
     soloForm.addEventListener('submit', async (e) => {
@@ -1974,47 +2071,8 @@
         soloQuestionCount++;
         soloQCount.textContent = `Questions: ${soloQuestionCount}`;
 
-        const row = document.createElement('div');
-        row.className = 'qa-item';
-
-        const qEl = document.createElement('span');
-        qEl.className = 'qa-q';
-        qEl.textContent = `${soloQuestionCount}. ${q}`;
-
-        const ansWrap = document.createElement('div');
-        ansWrap.className = 'qa-ans-wrap';
-
-        if (data.heat === 'hot') {
-          const badge = document.createElement('span');
-          badge.className = 'heat-badge heat-hot';
-          badge.textContent = '🔥 HOT!';
-          ansWrap.appendChild(badge);
-        } else if (data.heat === 'warm') {
-          const badge = document.createElement('span');
-          badge.className = 'heat-badge heat-warm';
-          badge.textContent = '♨️ WARM';
-          ansWrap.appendChild(badge);
-        } else if (data.heat === 'cold') {
-          const badge = document.createElement('span');
-          badge.className = 'heat-badge heat-cold';
-          badge.textContent = '❄️ COLD';
-          ansWrap.appendChild(badge);
-        }
-
-        const aEl = document.createElement('span');
-        const ans = data.answer || '';
-        const isYes = data.verdict === 'YES' || (data.verdict !== 'NO' && /\byes\b/i.test(ans));
-        const isNo = data.verdict === 'NO' || /\b(no|nope)\b/i.test(ans);
-        aEl.className = `qa-a ${isYes ? 'yes' : isNo ? 'no' : 'unknown'}`;
-        aEl.textContent = ans;
-        ansWrap.appendChild(aEl);
-
-        row.appendChild(qEl);
-        row.appendChild(ansWrap);
-        soloQaLog.prepend(row);
-        soloQaLog.classList.remove('hidden');
+        renderSoloQaRow(soloQuestionCount, q, data.answer || '', data.verdict, data.heat);
         soloShareBtn.style.display = 'inline-flex';
-
         soloInput.value = '';
 
         if (data.guessed && data.character) {
@@ -2111,7 +2169,7 @@
       if (soloFiltersWrap) soloFiltersWrap.classList.remove('hidden');
       soloForm.classList.remove('hidden');
       soloGiveupBtn.style.display = 'inline-flex';
-      startSoloGame();
+      startSoloGame({ force: true });
     });
 
     async function loadSharedSoloGame(shareId) {
@@ -2222,7 +2280,7 @@
       if (soloFiltersWrap) soloFiltersWrap.classList.remove('hidden');
       soloForm.classList.remove('hidden');
       soloGiveupBtn.style.display = 'inline-flex';
-      startSoloGame();
+      startSoloGame({ force: true });
     });
 
     // ========================================================================

@@ -46,25 +46,7 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 function loadStore() {
-  try {
-    if (fs.existsSync(STORE_PATH)) {
-      const parsed = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
-      return {
-        similarityProvider: parsed.similarityProvider === 'ollama' ? 'ollama' : 'gemini',
-        replaceAllOllamaWithGemini: Boolean(parsed.replaceAllOllamaWithGemini),
-        requestedCharacters: Array.isArray(parsed.requestedCharacters)
-          ? parsed.requestedCharacters
-          : [],
-        reportedTips: Array.isArray(parsed.reportedTips) ? parsed.reportedTips : [],
-        soloShares: Array.isArray(parsed.soloShares) ? parsed.soloShares : [],
-        users: typeof parsed.users === 'object' && parsed.users !== null ? parsed.users : {},
-        sessions: typeof parsed.sessions === 'object' && parsed.sessions !== null ? parsed.sessions : {},
-      };
-    }
-  } catch (err) {
-    console.warn('[Store Load Error]', err.message);
-  }
-  return {
+  const defaults = {
     similarityProvider: 'gemini',
     replaceAllOllamaWithGemini: false,
     requestedCharacters: [],
@@ -72,7 +54,27 @@ function loadStore() {
     soloShares: [],
     users: {},
     sessions: {},
+    activeSoloGames: {},
+    characterDifficulties: {},
+    characterStats: {},
   };
+  try {
+    if (fs.existsSync(STORE_PATH)) {
+      const parsed = JSON.parse(fs.readFileSync(STORE_PATH, 'utf8'));
+      return {
+        ...defaults,
+        ...parsed,
+        users: typeof parsed.users === 'object' && parsed.users !== null ? parsed.users : {},
+        sessions: typeof parsed.sessions === 'object' && parsed.sessions !== null ? parsed.sessions : {},
+        activeSoloGames: typeof parsed.activeSoloGames === 'object' && parsed.activeSoloGames !== null ? parsed.activeSoloGames : {},
+        characterDifficulties: typeof parsed.characterDifficulties === 'object' && parsed.characterDifficulties !== null ? parsed.characterDifficulties : {},
+        characterStats: typeof parsed.characterStats === 'object' && parsed.characterStats !== null ? parsed.characterStats : {},
+      };
+    }
+  } catch (err) {
+    console.warn('[Store Load Error]', err.message);
+  }
+  return defaults;
 }
 
 function saveStore(storeData) {
@@ -432,6 +434,15 @@ const searchCache = new Map();
 const dossierCache = new Map();
 const soloSessions = new Map();
 const CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+// Restore active solo games for logged-in users across server restarts
+if (appStore.activeSoloGames) {
+  for (const session of Object.values(appStore.activeSoloGames)) {
+    if (session && session.sessionId && !session.recorded && !session.abandoned) {
+      soloSessions.set(session.sessionId, session);
+    }
+  }
+}
 
 // Categorized character database with category & obscurity/difficulty tags
 const CHARACTER_DATABASE = require('./characters');
@@ -1756,6 +1767,14 @@ function recordSoloGameResult(sessionId, isWin, req) {
     user.losses = (Number(user.losses) || 0) + 1;
     user.score = Math.max(0, currentScore - 6);
   }
+  // Clear active solo game on account
+  if (session.username) {
+    const uKey = session.username.toLowerCase();
+    if (appStore.activeSoloGames && appStore.activeSoloGames[uKey]) {
+      delete appStore.activeSoloGames[uKey];
+    }
+  }
+
   user.lastActive = Date.now();
   saveStore(appStore);
 
@@ -1764,25 +1783,45 @@ function recordSoloGameResult(sessionId, isWin, req) {
 
 app.post('/api/solo/start', async (req, res) => {
   try {
-    const { category = 'all', difficulty = 'easy' } = req.body || {};
+    const { category = 'all', difficulty = 'easy', force = false } = req.body || {};
     const currentUser = getAuthenticatedUser(req);
+    const userKey = currentUser ? currentUser.username.toLowerCase() : null;
 
-    // If an authenticated player had an unfinished active game with questions, count as an abandon penalty (-6, same as Give Up)
-    if (currentUser) {
-      for (const [id, sess] of soloSessions.entries()) {
-        if (sess.username === currentUser.username && !sess.recorded && !sess.abandoned && sess.history && sess.history.length > 0) {
-          sess.abandoned = true;
-          sess.recorded = true;
-          if (sess.character && sess.character.name) {
-            adjustCharacterDifficulty(sess.character.name, false, sess.history.length);
-          }
-          const currScore = typeof currentUser.score === 'number' ? currentUser.score : 0;
-          currentUser.score = Math.max(0, currScore - 6);
-          currentUser.losses = (Number(currentUser.losses) || 0) + 1;
-          currentUser.rounds = (Number(currentUser.rounds) || 0) + 1;
-          currentUser.lastActive = Date.now();
-          saveStore(appStore);
+    // If authenticated user already has an active, unrecorded game and didn't force a new one: RESUME IT!
+    if (currentUser && !force) {
+      const existing = appStore.activeSoloGames ? appStore.activeSoloGames[userKey] : null;
+      if (existing && !existing.recorded && !existing.abandoned) {
+        soloSessions.set(existing.sessionId, existing);
+        return res.json({
+          resumed: true,
+          sessionId: existing.sessionId,
+          category: existing.category || 'all',
+          difficulty: existing.difficulty || 'easy',
+          questionCount: existing.history ? existing.history.length : 0,
+          history: existing.history || [],
+          message: 'Continuing your active game! Ask any Yes/No question or guess who it is.',
+        });
+      }
+    }
+
+    // If an authenticated player had an unfinished active game and forced a new game: forfeit penalty
+    if (currentUser && force) {
+      const existing = appStore.activeSoloGames ? appStore.activeSoloGames[userKey] : null;
+      if (existing && !existing.recorded && !existing.abandoned && existing.history && existing.history.length > 0) {
+        existing.abandoned = true;
+        existing.recorded = true;
+        if (existing.character && existing.character.name) {
+          adjustCharacterDifficulty(existing.character.name, false, existing.history.length);
         }
+        const currScore = typeof currentUser.score === 'number' ? currentUser.score : 0;
+        currentUser.score = Math.max(0, currScore - 6);
+        currentUser.losses = (Number(currentUser.losses) || 0) + 1;
+        currentUser.rounds = (Number(currentUser.rounds) || 0) + 1;
+        currentUser.lastActive = Date.now();
+      }
+      if (appStore.activeSoloGames && appStore.activeSoloGames[userKey]) {
+        delete appStore.activeSoloGames[userKey];
+        saveStore(appStore);
       }
     }
 
@@ -1794,7 +1833,8 @@ app.post('/api/solo/start', async (req, res) => {
     const dossier = await buildDeepCharacterDossier(baseChar);
     const sessionId = crypto.randomUUID();
 
-    soloSessions.set(sessionId, {
+    const sessionObj = {
+      sessionId,
       createdAt: Date.now(),
       category,
       difficulty,
@@ -1810,16 +1850,25 @@ app.post('/api/solo/start', async (req, res) => {
       history: [],
       recorded: false,
       abandoned: false,
-    });
+    };
 
-    // Clean up old sessions (> 2 hours)
+    soloSessions.set(sessionId, sessionObj);
+
+    if (currentUser) {
+      if (!appStore.activeSoloGames) appStore.activeSoloGames = {};
+      appStore.activeSoloGames[userKey] = sessionObj;
+      saveStore(appStore);
+    }
+
+    // Clean up old sessions (> 48 hours)
     for (const [id, sess] of soloSessions.entries()) {
-      if (Date.now() - sess.createdAt > 2 * 60 * 60 * 1000) {
+      if (Date.now() - sess.createdAt > 48 * 60 * 60 * 1000) {
         soloSessions.delete(id);
       }
     }
 
     res.json({
+      resumed: false,
       sessionId,
       message: 'Secret character selected! Ask any Yes/No question or guess who it is.',
     });
@@ -1829,8 +1878,15 @@ app.post('/api/solo/start', async (req, res) => {
   }
 });
 
-// Abandon Solo Game Endpoint (triggered by page reload, close, or navigating away during active game: -6 points, same as Give Up)
+// Abandon Solo Game Endpoint
 app.post('/api/solo/abandon', (req, res) => {
+  // If user is authenticated, we allow them to resume on reload or other device.
+  // We do not treat page reload/closing as abandonment for logged-in players!
+  const user = getAuthenticatedUser(req);
+  if (user) {
+    return res.json({ ok: true, ignored: true, message: 'Logged-in user sessions persist across reloads.' });
+  }
+
   let sessionId = null;
   if (typeof req.body === 'string') {
     try {
@@ -1855,20 +1911,9 @@ app.post('/api/solo/abandon', (req, res) => {
   session.abandoned = true;
   session.recorded = true;
 
-  const user = getAuthenticatedUser(req) || (session.username ? ensureUserRecord(session.username) : null);
   const qCount = session.history ? session.history.length : 0;
   if (session.character && session.character.name && qCount > 0) {
     adjustCharacterDifficulty(session.character.name, false, qCount);
-  }
-
-  if (user && qCount > 0) {
-    const currScore = typeof user.score === 'number' ? user.score : 0;
-    user.score = Math.max(0, currScore - 6); // Exactly identical to Give Up
-    user.losses = (Number(user.losses) || 0) + 1;
-    user.rounds = (Number(user.rounds) || 0) + 1;
-    user.lastActive = Date.now();
-    saveStore(appStore);
-    return res.json({ ok: true, abandoned: true, score: user.score, message: 'Game abandoned. Penalty applied.' });
   }
 
   res.json({ ok: true, abandoned: true });
@@ -2198,6 +2243,9 @@ app.post('/api/solo/ask', async (req, res) => {
     }
 
     session.history.push({ question: userQ, answer, heat, verdict });
+    if (session.username) {
+      saveStore(appStore);
+    }
 
     res.json({
       answer,
