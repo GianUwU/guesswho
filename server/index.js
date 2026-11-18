@@ -459,6 +459,53 @@ if (appStore.characterDifficulties) {
 
 const RANDOM_CHARACTER_POOL = CHARACTER_DATABASE.map((c) => c.name);
 
+// Common traits, roles, genres, archetypes, and stopwords that should NEVER be treated as character identity guesses
+const COMMON_TRAIT_WORDS = new Set([
+  'hero', 'robot', 'happy', 'man', 'boy', 'girl', 'guy', 'woman', 'kid', 'child', 'person', 'human',
+  'red', 'blue', 'green', 'yellow', 'black', 'white', 'brown', 'gold', 'silver', 'pink', 'orange', 'purple', 'gray', 'grey',
+  'dark', 'light', 'shadow', 'super', 'fire', 'ice', 'water', 'earth', 'air', 'wind', 'lightning', 'thunder',
+  'knight', 'king', 'queen', 'prince', 'princess', 'lord', 'lady', 'doctor', 'dr', 'mr', 'mrs', 'miss', 'master',
+  'captain', 'major', 'general', 'officer', 'cop', 'police', 'detective', 'student', 'teacher', 'professor',
+  'angel', 'demon', 'devil', 'monster', 'beast', 'creature', 'alien', 'god', 'goddess', 'ghost', 'spirit', 'soul',
+  'cat', 'dog', 'bird', 'duck', 'rabbit', 'hare', 'mouse', 'bear', 'fox', 'wolf', 'fish', 'dragon', 'horse', 'pig',
+  'lion', 'tiger', 'frog', 'snake', 'insect', 'bug', 'spider', 'turtle',
+  'tree', 'flower', 'plant', 'car', 'plane', 'train', 'ship', 'boat', 'sword', 'gun', 'weapon', 'item', 'piece', 'chess',
+  'echo', 'joy', 'pain', 'beam', 'hush', 'scar', 'po', 'ed', 'ein', 'jin', 'gin', 'dawn', 'may',
+  'flower', 'smile', 'death', 'life', 'war', 'peace', 'power', 'speed', 'force', 'magic', 'magical',
+  'real', 'alive', 'dead', 'short', 'tall', 'fast', 'slow', 'funny', 'comedy', 'humorous', 'silly', 'serious',
+  'cool', 'wild', 'shy', 'nice', 'mean', 'good', 'evil', 'villain', 'antihero', 'playable',
+  'shonen', 'seinen', 'shojo', 'anime', 'manga', 'cartoon', 'animation', 'animated', 'movie', 'film',
+  'game', 'video game', 'show', 'series', 'book', 'novel', 'comic', 'comics', 'slice', 'slice of life',
+  'male', 'female', 'action', 'romance', 'romantic', 'horror', 'scary', 'drama', 'fantasy', 'scifi', 'sci fi',
+  'blonde', 'bald', 'cute', 'smart', 'dumb', 'angry', 'strong', 'weak', 'rich', 'poor', 'young', 'old',
+  'america', 'american', 'japan', 'japanese', 'space', 'earth', 'world', 'voice', 'voiced', 'writer', 'creator',
+]);
+
+const KNOWN_CHARACTER_NAMES = new Set();
+for (const c of CHARACTER_DATABASE) {
+  const norm = (c.name || '').toLowerCase()
+    .replace(/\s*\([^)]+\)$/, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!norm) continue;
+
+  if (norm.includes(' ')) {
+    KNOWN_CHARACTER_NAMES.add(norm);
+    if (norm.startsWith('the ')) KNOWN_CHARACTER_NAMES.add(norm.slice(4));
+    const tokens = norm.split(' ');
+    for (const t of tokens) {
+      if (t.length >= 4 && !COMMON_TRAIT_WORDS.has(t)) {
+        KNOWN_CHARACTER_NAMES.add(t);
+      }
+    }
+  } else {
+    if (!COMMON_TRAIT_WORDS.has(norm) && norm.length >= 3) {
+      KNOWN_CHARACTER_NAMES.add(norm);
+    }
+  }
+}
+
 function stripHtmlAndSpoilers(text = '') {
   return text
     .replace(/~!.*?!~/gs, '')
@@ -1963,39 +2010,54 @@ function verifyGuessMatchesCharacter(userQ, char) {
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  const cleanCharNoThe = cleanChar.replace(/^the\s+/, '').trim();
 
   const cleanQ = userQ.toLowerCase()
     .replace(/[^a-z0-9\s]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
-  // 1. Direct full substring match
-  if (cleanQ.includes(cleanChar)) return true;
+  if (!cleanQ) return false;
 
-  // 2. Distinctive name parts (non-stopwords)
-  const stopwords = new Set(['and', 'mr', 'mrs', 'dr', 'sir', 'lord', 'captain', 'king', 'queen', 'prince', 'princess', 'of']);
-  const charTokens = cleanChar.split(/\s+/).filter((t) => t.length >= 3 && !stopwords.has(t) && t !== 'the');
+  // 1. Direct exact match
+  if (cleanQ === cleanChar || cleanQ === cleanCharNoThe) return true;
 
-  const guessTarget = cleanQ
-    .replace(/^(is\s+(it|the\s+character|he|she)|are\s+you|guess|my\s+guess\s+is)\s+/, '')
-    .replace(/^(the|a|an)\s+/, '')
-    .trim();
+  // 2. Guess phrasing match: "is it X", "are you X", "guess X", etc.
+  const guessPrefixRegex = /^(guess\s*[:=]?|my\s+guess\s+is|i\s+guess|i\s+bet\s+it\s+is|the\s+character\s+is|is\s+the\s+character\s+named|is\s+(his|her|their)\s+name|is\s+(it|the\s+character|he|she)|are\s+you)\s+/i;
 
-  if (guessTarget && cleanChar) {
-    if (guessTarget === cleanChar || cleanChar.replace(/^the\s+/, '') === guessTarget) return true;
+  if (guessPrefixRegex.test(cleanQ)) {
+    const target = cleanQ.replace(guessPrefixRegex, '').trim();
+
+    // If target has indefinite article ("a hero", "a robot", "a comedy") and is a common word, it is a question!
+    const hasIndefiniteArticle = /^(a|an)\s+/i.test(target);
+    const bareTarget = target.replace(/^(the|a|an)\s+/, '').trim();
+
+    if (hasIndefiniteArticle && COMMON_TRAIT_WORDS.has(bareTarget)) {
+      return false;
+    }
+
+    if (bareTarget === cleanChar || bareTarget === cleanCharNoThe) return true;
+
+    // Multi-word character: check distinctive tokens
+    const stopwords = new Set(['and', 'mr', 'mrs', 'dr', 'sir', 'lord', 'captain', 'king', 'queen', 'prince', 'princess', 'of', 'the', 'in', 'at', 'on']);
+    const charTokens = cleanChar.split(/\s+/).filter((t) => t.length >= 3 && !stopwords.has(t));
+
+    // If target equals the character without stopwords
+    if (bareTarget === charTokens.join(' ')) return true;
+
+    // If target equals a distinctive token (e.g. "naruto" for "naruto uzumaki", "luffy" for "monkey d luffy")
+    // provided it is NOT in COMMON_TRAIT_WORDS
+    if (!COMMON_TRAIT_WORDS.has(bareTarget) && bareTarget.length >= 4) {
+      if (charTokens.includes(bareTarget)) return true;
+    }
   }
 
-  const matchedTokens = charTokens.filter((t) => {
-    return new RegExp(`\\b${t}\\b`, 'i').test(cleanQ);
-  });
-
-  if (matchedTokens.length > 0) {
-    if (charTokens.length === 1 && matchedTokens.length === 1) return true;
-    if (charTokens.length >= 2 && matchedTokens.length >= 1) {
-      const firstToken = charTokens[0];
-      if (matchedTokens.includes(firstToken) && firstToken.length >= 4) return true;
-      if (matchedTokens.length >= 2) return true;
-    }
+  // 3. Multi-word character full substring match (e.g. "is it witch hazel", "is this green lantern")
+  // ONLY if cleanChar has at least 2 tokens (so single words like "Hero" or "Red" never substring match)
+  const charTokens = cleanChar.split(/\s+/);
+  if (charTokens.length >= 2) {
+    if (new RegExp(`\\b${cleanChar}\\b`, 'i').test(cleanQ)) return true;
+    if (new RegExp(`\\b${cleanCharNoThe}\\b`, 'i').test(cleanQ)) return true;
   }
 
   return false;
@@ -2005,21 +2067,46 @@ function isExplicitCharacterGuess(q) {
   const norm = (q || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
   if (!norm) return false;
 
-  // Patterns like "is it X", "are you X", "is the character X", "is he X", "is she X"
-  if (/^(is\s+(it|the\s+character|he|she)|are\s+you)\s+([a-z0-9\s]+)$/i.test(norm)) {
-    const target = norm.replace(/^(is\s+(it|the\s+character|he|she)|are\s+you)\s+/, '').trim();
-    const traitPrefixes = /^(a|an|the)?\s*(male|female|man|woman|boy|girl|human|animal|alive|dead|real|fictional|good|evil|hero|villain|tall|short|old|young|robot|alien|monster|god|ghost|ninja|pirate|wizard|soldier|cop|doctor|student|teacher|playable|from|in|with|having|part\s+of|based\s+on|wearing|holding|carrying|capable\s+of)\b/i;
-    if (traitPrefixes.test(target) && target.split(' ').length <= 4) {
-      return false; // Trait question (e.g. "is he a male", "is it a human", "are you from an anime")
-    }
-    const commonSpeciesOrObjects = /^(a|an|the)?\s*(dog|cat|turtle|rabbit|hare|bird|duck|mouse|bear|fox|wolf|fish|dragon|horse|pig|lion|tiger|frog|snake|insect|bug|spider|tree|flower|car|robot|plane|train|ship|sword|gun|chess\s+piece|piece|item|weapon)\b/i;
-    if (commonSpeciesOrObjects.test(target)) {
-      return false;
-    }
-    return true; // e.g. "is it the knight", "is it mario", "are you naruto", "is it bugs bunny"
+  // 1. Unambiguous explicit guess keywords: "guess X", "my guess is X", "i guess X"
+  if (/^(guess\s*[:=]?|my\s+guess\s+is|i\s+guess|i\s+bet\s+it\s+is|the\s+character\s+is|is\s+the\s+character\s+named|is\s+(his|her|their)\s+name)\b/i.test(norm)) {
+    return true;
   }
 
-  if (/^(guess|my\s+guess\s+is|i\s+guess)\s+/i.test(norm)) {
+  // 2. Patterns like "is it X", "are you X", "is the character X", "is he X", "is she X"
+  const questionPrefixRegex = /^(is\s+(it|the\s+character|he|she)|are\s+you)\s+/i;
+  if (questionPrefixRegex.test(norm)) {
+    const target = norm.replace(questionPrefixRegex, '').trim();
+    if (!target) return false;
+
+    // Prepositional or descriptive clause -> trait/lore question (e.g. "from an anime", "in a movie", "wearing a cape")
+    if (/^(from|in|on|at|with|having|part\s+of|based\s+on|wearing|holding|carrying|capable\s+of|voiced\s+by|played\s+by|created\s+by|written\s+by)\b/i.test(target)) {
+      return false;
+    }
+
+    const hasIndefiniteArticle = /^(a|an)\s+/i.test(target);
+    const bareTarget = target.replace(/^(the|a|an)\s+/, '').trim();
+
+    // If target has indefinite article ("a robot", "a hero", "a comedy") and is a common word, it is a question!
+    if (hasIndefiniteArticle && COMMON_TRAIT_WORDS.has(bareTarget)) {
+      return false;
+    }
+
+    // If target or bareTarget is in common words / traits, it is a question!
+    if (COMMON_TRAIT_WORDS.has(target) || COMMON_TRAIT_WORDS.has(bareTarget)) {
+      return false;
+    }
+
+    // Check if it matches a known character name from the database
+    if (KNOWN_CHARACTER_NAMES.has(target) || KNOWN_CHARACTER_NAMES.has(bareTarget)) {
+      return true;
+    }
+
+    // If it does NOT match a known character name, it is treated as a trait/lore question and sent to AI judge!
+    return false;
+  }
+
+  // 3. User just typed a known character name directly (e.g. "Mario", "Naruto Uzumaki")
+  if (KNOWN_CHARACTER_NAMES.has(norm) && !COMMON_TRAIT_WORDS.has(norm)) {
     return true;
   }
 
@@ -2084,9 +2171,10 @@ CRITICAL ANTI-SPOILER & NO-EXPLANATION RULE (NEVER LEAK TRAITS OR REASONS):
 - If the answer is No, just say No. NEVER give away what they actually are!
 
 3. NON-YES/NO QUESTION EVALUATION:
-   - In Guess Who, questions MUST be answerable with Yes or No (or be a direct character guess).
-   - If the player asks an open-ended question that CANNOT be answered with Yes or No (e.g. "What color is their hair?", "Where do they live?", "Who is their friend?", "How old are they?", "Tell me about them", "What anime is this?"):
-     "guessed": false, "verdict": "INVALID", "heat": "neutral", "answer": "⚠️ In Guess Who, you can only ask Yes/No questions! (e.g. 'Do they have black hair?')"
+   - ONLY mark a question as "INVALID" if it is an OPEN-ENDED question that CANNOT be answered with Yes or No (e.g. "What color is their hair?", "Where do they live?", "Who is their friend?", "How old are they?", "Tell me about them", "What anime is this?").
+   - ANY question asking whether a trait, genre, or attribute applies (e.g. "is it funny?", "is it a comedy?", "is it action?", "from a slice of life?", "is he tall?", "can they fly?") IS A VALID YES/NO QUESTION!
+     - If the character/series matches: answer YES with "verdict": "YES".
+     - If the character/series does NOT match: answer NO with "verdict": "NO". NEVER mark trait/genre questions as INVALID!
    - DISJUNCTIVE / "OR" QUESTIONS (VERY IMPORTANT):
      Questions with "or" (e.g. "Is the character a sailor or a pirate?", "Are they a hero or villain?", "Do they fight with magic or weapons?", "Is their hair black or brown?") ARE VALID YES/NO QUESTIONS.
      - If the character matches EITHER option: "verdict": "YES" (e.g. "👍 Yes, that's right!", "✨ Yes, definitely!").
@@ -2307,13 +2395,21 @@ app.post('/api/solo/ask', async (req, res) => {
     }
 
     if (verdict === 'INVALID' || parsed.invalid) {
-      return res.json({
-        answer: answer || "⚠️ In Guess Who, you can only ask Yes/No questions! (e.g. instead of 'What color is their hair?', ask 'Do they have black hair?')",
-        verdict: 'INVALID',
-        invalid: true,
-        heat: 'neutral',
-        guessed: false,
-      });
+      // If the question is grammatically a Yes/No question (starts with auxiliary verb, preposition, etc.),
+      // it is a valid trait/genre question, not an open-ended question. If the AI thought it was inapplicable, treat as NO.
+      if (/^(is|are|does|do|can|has|have|was|were|did|from|in|with)\b/i.test(userQ.trim())) {
+        verdict = 'NO';
+        heat = 'cold';
+        answer = '❌ Nope, not at all.';
+      } else {
+        return res.json({
+          answer: answer || "⚠️ In Guess Who, you can only ask Yes/No questions! (e.g. instead of 'What color is their hair?', ask 'Do they have black hair?')",
+          verdict: 'INVALID',
+          invalid: true,
+          heat: 'neutral',
+          guessed: false,
+        });
+      }
     }
 
     if (guessed) {
